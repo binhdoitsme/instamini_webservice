@@ -1,0 +1,9 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs/InstaminiWebService/DesignTimeBuild/.dtbcache.v2
+/.vs/InstaminiWebService/v16/.suo
+/.vscode
+/bin/Debug/netcoreapp3.1
+/obj
