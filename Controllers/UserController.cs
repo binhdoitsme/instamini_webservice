@@ -55,7 +55,7 @@ namespace InstaminiWebService.Controllers
 
             await UserContext.AddAsync(user);
             await DbContext.SaveChangesAsync();
-            return Created(Url.Action("GetUserById", user.Id), user);
+            return Created(Url.Action("GetUserById", new { id = user.Id }), ModelWrapperFactory.Create(user));
         }
 
         [HttpGet("{id}")]
@@ -76,7 +76,29 @@ namespace InstaminiWebService.Controllers
             {
                 return BadRequest(new { err = "You are trying to update an account of another!" });
             }
+            // Perform password update right here
+            // ----------------------------------
+
+            // After password update
             UserContext.Update(user);
+            await DbContext.SaveChangesAsync();
+            return Ok();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> RemoveUser([FromRoute] int id) {
+            // TODO: 
+            // CAN ONLY REMOVE THE LOGGED IN USER WITH THE SAME ID, ELSE MUST FORBID
+            // ---------------------------------------------
+
+            // ---------------------------------------------
+            var retrievedUser = await UserContext.Where(u => u.Id == id).FirstOrDefaultAsync();
+            if (retrievedUser == null)
+            {
+                return NotFound();
+            }
+
+            UserContext.Remove(retrievedUser);
             await DbContext.SaveChangesAsync();
             return Ok();
         }

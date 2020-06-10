@@ -13,7 +13,8 @@ namespace InstaminiWebService.ModelWrappers.Factory
         {
             { typeof(Comment), typeof(CommentWrapper) },
             { typeof(Photo), typeof(PhotoWrapper) },
-            { typeof(Post), typeof(PostWrapper) }
+            { typeof(Post), typeof(PostWrapper) },
+            { typeof(User), typeof(UserWrapper) }
         };
 
         public IModelWrapper<T> Create<T>(T input) where T : class

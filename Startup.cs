@@ -1,5 +1,6 @@
 using InstaminiWebService.Database;
 using InstaminiWebService.ModelWrappers.Factory;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +23,8 @@ namespace InstaminiWebService
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+                    .AddCookie();
             services.AddControllers();
             services.AddDbContext<InstaminiContext>(options => {
                             options.UseMySQL(Configuration.GetConnectionString("Instamini"));
@@ -41,6 +44,8 @@ namespace InstaminiWebService
             app.UseHttpsRedirection();
 
             app.UseRouting();
+
+            app.UseAuthentication();
 
             app.UseAuthorization();
 

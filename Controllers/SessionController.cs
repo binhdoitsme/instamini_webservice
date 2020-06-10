@@ -14,6 +14,11 @@ namespace InstaminiWebService.Controllers
         [HttpPost]
         public string BeginSession()
         {
+            // validate username/password
+
+            // if not valid username/password return BadRequest
+
+            // else create and set-cookie JWT string
             throw new NotImplementedException();
         }
 
