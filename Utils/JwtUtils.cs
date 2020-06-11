@@ -19,13 +19,13 @@ namespace InstaminiWebService.Utils
         private static readonly IList<string> JwtBlacklist = new List<string>();
 
         public static string CreateJwt(string username, 
-                                        string userId,
+                                        int userId,
                                         string issuer = ISSUER, 
                                         string secret = SECRET, 
                                         int expireTimeInMinutes = EXPIRATION_IN_MINUTES)
         {
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
-            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.Sha512);
+            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
             var secToken = new JwtSecurityToken(
                 signingCredentials: credentials,
@@ -33,7 +33,7 @@ namespace InstaminiWebService.Utils
                 claims: new[]
                 {
                     new Claim(ClaimTypes.Name, username),
-                    new Claim(ClaimTypes.NameIdentifier, userId)
+                    new Claim(ClaimTypes.NameIdentifier, userId.ToString())
                 },
                 expires: DateTime.UtcNow.AddMinutes(expireTimeInMinutes)
             );
@@ -42,9 +42,10 @@ namespace InstaminiWebService.Utils
             return handler.WriteToken(secToken);
         }
 
-        public static IPrincipal ValidateJWT(string jwt)
+        public static ClaimsPrincipal ValidateJWT(string token)
         {
-            if (JwtBlacklist.Contains(jwt)) return null;
+            if (JwtBlacklist.Contains(token)) return null;
+            if (token is null) return null;
 
             var tokenHandler = new JwtSecurityTokenHandler();
             var issuerSecurityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(SECRET));
@@ -56,10 +57,21 @@ namespace InstaminiWebService.Utils
                 IssuerSigningKey = issuerSecurityKey,
                 ValidateAudience = false
             };
+            try
+            {
+                return tokenHandler.ValidateToken(token, validationParameters, out SecurityToken validatedToken);
+            } catch (SecurityTokenValidationException)
+            {
+                return null;
+            } catch (Exception)
+            {
+                throw;
+            }
+        }
 
-            IPrincipal principal = tokenHandler.ValidateToken(jwt, validationParameters, out SecurityToken validatedToken);
-
-            return principal;
+        public static void InvalidateJWT(string jwt)
+        {
+            JwtBlacklist.Add(jwt);
         }
     }
 }

@@ -1,6 +1,6 @@
 using InstaminiWebService.Database;
 using InstaminiWebService.ModelWrappers.Factory;
-using Microsoft.AspNetCore.Authentication.Cookies;
+using InstaminiWebService.Utils;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +13,8 @@ namespace InstaminiWebService
 {
     public class Startup
     {
+        const string TOKEN_BASED_AUTH_SCHEME = "TokenBased";
+
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
@@ -23,8 +25,11 @@ namespace InstaminiWebService
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-                    .AddCookie();
+            services.AddAuthentication(TOKEN_BASED_AUTH_SCHEME)
+                    .AddScheme<TokenAuthenticationOptions, TokenAuthenticationHandler>(TOKEN_BASED_AUTH_SCHEME, 
+                        options =>
+                        {
+                        });
             services.AddControllers();
             services.AddDbContext<InstaminiContext>(options => {
                             options.UseMySQL(Configuration.GetConnectionString("Instamini"));

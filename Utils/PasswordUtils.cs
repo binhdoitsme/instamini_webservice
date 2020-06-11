@@ -36,5 +36,10 @@ namespace InstaminiWebService.Utils
             }
             return builder.ToString();
         }
+
+        public static bool ValidatePasswordWithSalt(string password, string salt, string hashed)
+        {
+            return HashPasswordWithSalt(password, salt).Equals(hashed);
+        }
     }
 }
