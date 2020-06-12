@@ -127,7 +127,10 @@ namespace InstaminiWebService.Controllers
             // CAN ONLY REMOVE THE LOGGED IN USER WITH THE SAME ID, ELSE MUST FORBID
             // ---------------------------------------------
             string jwt = Request.Cookies["Token"];
-            Logger.LogInformation($"{JwtUtils.ValidateJWT(jwt) is null}");
+            if (string.IsNullOrEmpty(jwt))
+            {
+                return BadRequest(new { err = "Unauthorized user!" });
+            }
             int userId = int.Parse(JwtUtils.ValidateJWT(jwt)?.Claims
                                 .Where(claim => claim.Type == ClaimTypes.NameIdentifier)
                                 .FirstOrDefault().Value);
