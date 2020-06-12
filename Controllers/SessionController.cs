@@ -38,7 +38,7 @@ namespace InstaminiWebService.Controllers
             // if not valid username/password return BadRequest
             if (!isValidUser)
             {
-                return BadRequest(new { err = "Username or password is incorrect!" });
+                return BadRequest(new { Err =  "Username or password is incorrect!" });
             }
 
             // else create and set-cookie JWT string

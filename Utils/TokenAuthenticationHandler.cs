@@ -64,7 +64,7 @@ namespace InstaminiWebService.Utils
         {
             Response.StatusCode = 401;
             Response.ContentType = "application/json";
-            await Response.WriteAsync(JsonSerializer.Serialize(new { err = "Unauthorized user!" }));
+            await Response.WriteAsync(JsonSerializer.Serialize(new { Err =  "Unauthorized user!" }));
         }
     }
 }

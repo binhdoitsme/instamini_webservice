@@ -50,7 +50,7 @@ namespace InstaminiWebService.Controllers
             bool hasDuplicate = UserContext.Any(u => u.Username == user.Username);
             if (hasDuplicate)
             {
-                return BadRequest(new { err = "Username is duplicated!" });
+                return BadRequest(new { Err =  "Username is duplicated!" });
             }
 
             string originalPass = user.Password;
@@ -86,7 +86,7 @@ namespace InstaminiWebService.Controllers
         {
             if (user.Id != id)
             {
-                return BadRequest(new { err = "You are trying to update an account of another!" });
+                return BadRequest(new { Err =  "You are trying to update an account of another!" });
             }
             // Perform password update right here
             // ----------------------------------
@@ -129,14 +129,14 @@ namespace InstaminiWebService.Controllers
             string jwt = Request.Cookies["Token"];
             if (string.IsNullOrEmpty(jwt))
             {
-                return BadRequest(new { err = "Unauthorized user!" });
+                return BadRequest(new { Err =  "Unauthorized user!" });
             }
             int userId = int.Parse(JwtUtils.ValidateJWT(jwt)?.Claims
                                 .Where(claim => claim.Type == ClaimTypes.NameIdentifier)
                                 .FirstOrDefault().Value);
             if (userId != id)
             {
-                return BadRequest(new { err = "You cannot delete others' accounts!" });
+                return BadRequest(new { Err =  "You cannot delete others' accounts!" });
             }
             // ---------------------------------------------
             var retrievedUser = await UserContext.Where(u => u.Id == id).FirstOrDefaultAsync();
