@@ -37,11 +37,13 @@ namespace InstaminiWebService.Utils
             Logger.LogInformation($"key={apiKeyQuery}");
             if (string.IsNullOrEmpty(apiKeyQuery))
             {
+                Response.Cookies.Delete("Token");
                 return AuthenticateResult.Fail("Token is missing!");
             }
             var authResult = JwtUtils.ValidateJWT(apiKeyQuery);
             if (authResult is null)
             {
+                Response.Cookies.Delete("Token");
                 return AuthenticateResult.Fail("Token is invalid!");
             }
             var authResultUsernameId = int.Parse(authResult.Claims
@@ -49,11 +51,13 @@ namespace InstaminiWebService.Utils
                                                     .FirstOrDefault()
                                                     .Value);
             bool isValidUser = await UserDatabase.Where(u => u.Id == authResultUsernameId).FirstOrDefaultAsync() != null;
-            if (isValidUser)
+            if (!isValidUser)
             {
-                return AuthenticateResult.Success(new AuthenticationTicket(authResult, "TokenBased"));
+                Response.Cookies.Delete("Token");
+                return AuthenticateResult.Fail("Token is invalid!");
+                
             }
-            return AuthenticateResult.Fail("Token is invalid!");
+            return AuthenticateResult.Success(new AuthenticationTicket(authResult, "TokenBased"));
         }
 
         protected override async Task HandleChallengeAsync(AuthenticationProperties properties)

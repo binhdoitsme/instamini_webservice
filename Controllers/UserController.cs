@@ -32,7 +32,7 @@ namespace InstaminiWebService.Controllers
         }
 
         [HttpGet]
-        [Authorize]
+        [AllowAnonymous]
         public IEnumerable<UserWrapper> FindUsersByQuery([FromQuery(Name = "q")][Required] string query)
         {
             return UserContext.Where(u => u.Username.Contains(query))
