@@ -23,12 +23,16 @@ namespace InstaminiWebService.Controllers
         private readonly DbSet<User> UserContext;
         private readonly InstaminiContext DbContext;
         private readonly IModelWrapperFactory ModelWrapperFactory;
+        private readonly ILogger Logger;
 
-        public UserController(InstaminiContext context, IModelWrapperFactory modelWrapperFactory)
+        public UserController(InstaminiContext context, 
+                              IModelWrapperFactory modelWrapperFactory,
+                              ILogger<UserController> logger)
         {
             DbContext = context;
             UserContext = context.Users;
             ModelWrapperFactory = modelWrapperFactory;
+            Logger = logger;
         }
 
         [HttpGet]
@@ -73,7 +77,7 @@ namespace InstaminiWebService.Controllers
             {
                 return NotFound();
             }
-            return new JsonResult(retrievedUser);
+            return new JsonResult(ModelWrapperFactory.Create(retrievedUser));
         }
 
         [HttpPatch("{id}")]
@@ -86,17 +90,31 @@ namespace InstaminiWebService.Controllers
             }
             // Perform password update right here
             // ----------------------------------
-            User retrievedUser = UserContext.Find(id);
-            if (user.Password != retrievedUser.Password)
+            var retrievedUser = await DbContext.Users
+                                    .FirstOrDefaultAsync(x => x.Id == user.Id);
+
+            if (!string.IsNullOrEmpty(user.Password))
             {
                 string salt = PasswordUtils.GenerateSalt();
                 string hashedPassword = PasswordUtils.HashPasswordWithSalt(user.Password, salt);
                 user.Salt = salt;
                 user.Password = hashedPassword;
+            } else
+            {
+                user.Password = retrievedUser.Password;
+                user.Salt = retrievedUser.Salt;
             }
 
+            if (user.Created == DateTimeOffset.MinValue)
+            {
+                user.Created = retrievedUser.Created;
+            }
+
+            var now = DateTime.UtcNow;
+            user.LastUpdate = now;
+
             // After password update
-            UserContext.Update(user);
+            DbContext.Entry(retrievedUser).CurrentValues.SetValues(user);
             await DbContext.SaveChangesAsync();
             return Ok();
         }
@@ -108,7 +126,8 @@ namespace InstaminiWebService.Controllers
             // TODO: 
             // CAN ONLY REMOVE THE LOGGED IN USER WITH THE SAME ID, ELSE MUST FORBID
             // ---------------------------------------------
-            string jwt = HttpContext.Request.Cookies["Token"];
+            string jwt = Request.Cookies["Token"];
+            Logger.LogInformation($"{JwtUtils.ValidateJWT(jwt) is null}");
             int userId = int.Parse(JwtUtils.ValidateJWT(jwt)?.Claims
                                 .Where(claim => claim.Type == ClaimTypes.NameIdentifier)
                                 .FirstOrDefault().Value);
@@ -125,6 +144,8 @@ namespace InstaminiWebService.Controllers
 
             UserContext.Remove(retrievedUser);
             await DbContext.SaveChangesAsync();
+            // remove token in response
+            Response.Cookies.Delete("Token");
             return Ok();
         }
     }

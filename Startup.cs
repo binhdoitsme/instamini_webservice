@@ -34,6 +34,7 @@ namespace InstaminiWebService
             services.AddDbContext<InstaminiContext>(options => {
                             options.UseMySQL(Configuration.GetConnectionString("Instamini"));
                             options.UseLoggerFactory(LoggerFactory.Create(builder => builder.AddConsole()));
+                            options.EnableSensitiveDataLogging();
                         })
                     .AddSingleton<IModelWrapperFactory>(new ModelWrapperFactory());
         }
