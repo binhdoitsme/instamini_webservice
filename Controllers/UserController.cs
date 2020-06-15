@@ -6,6 +6,7 @@ using InstaminiWebService.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -20,27 +21,36 @@ namespace InstaminiWebService.Controllers
     [ApiController]
     public class UserController : ControllerBase
     {
+        private const string AVATAR_SERVING_PREFIX = "/avatars/";
+
         private readonly DbSet<User> UserContext;
         private readonly InstaminiContext DbContext;
         private readonly IModelWrapperFactory ModelWrapperFactory;
         private readonly ILogger Logger;
+        private readonly IConfiguration Configuration;
+        private readonly string DefaultAvatarPath;
 
         public UserController(InstaminiContext context, 
                               IModelWrapperFactory modelWrapperFactory,
-                              ILogger<UserController> logger)
+                              ILogger<UserController> logger,
+                              IConfiguration configuration)
         {
             DbContext = context;
             UserContext = context.Users;
             ModelWrapperFactory = modelWrapperFactory;
             Logger = logger;
+            Configuration = configuration;
+            DefaultAvatarPath = Configuration.GetValue<string>("DefaultAvatar");
         }
 
         [HttpGet]
         [AllowAnonymous]
         public IEnumerable<UserWrapper> FindUsersByQuery([FromQuery(Name = "q")][Required] string query)
         {
-            return UserContext.Where(u => u.Username.Contains(query))
-                                .Select(u => (UserWrapper)ModelWrapperFactory.Create(u));
+            return UserContext.Include(u => u.AvatarPhoto)
+                    .Where(u => u.Username.Contains(query))
+                    .ForEach(u => u.AvatarPhoto.FileName = $"{AVATAR_SERVING_PREFIX}{u.AvatarPhoto.FileName}")
+                    .Select(u => (UserWrapper)ModelWrapperFactory.Create(u));
         }
 
         [HttpPost]
@@ -65,6 +75,19 @@ namespace InstaminiWebService.Controllers
 
             await UserContext.AddAsync(user);
             await DbContext.SaveChangesAsync();
+
+            // create new avatar record
+            var photo = new AvatarPhoto
+            {
+                UserId = user.Id,
+                FileName = DefaultAvatarPath
+            };
+            DbContext.AvatarPhotos.Add(photo);
+            await DbContext.SaveChangesAsync();
+
+            // format output
+            photo.FileName = $"{AVATAR_SERVING_PREFIX}{photo.FileName}";
+            user.AvatarPhoto = photo;
             return Created(Url.Action("GetUserById", new { id = user.Id }), ModelWrapperFactory.Create(user));
         }
 
@@ -72,11 +95,15 @@ namespace InstaminiWebService.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> GetUserById([FromRoute] int id)
         {
-            var retrievedUser = await UserContext.Where(u => u.Id == id).FirstOrDefaultAsync();
+            var retrievedUser = await UserContext.Include(u => u.AvatarPhoto)
+                                        .Where(u => u.Id == id).FirstOrDefaultAsync();
             if (retrievedUser == null)
             {
                 return NotFound();
             }
+
+            // format output
+            retrievedUser.AvatarPhoto.FileName = $"{AVATAR_SERVING_PREFIX}{retrievedUser.AvatarPhoto.FileName}";
             return new JsonResult(ModelWrapperFactory.Create(retrievedUser));
         }
 

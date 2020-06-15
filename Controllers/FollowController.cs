@@ -32,7 +32,8 @@ namespace InstaminiWebService.Controllers
                     .Select(f => new
                     {
                         f.Follower.Id,
-                        f.Follower.Username
+                        f.Follower.Username,
+                        Link = $"/users/{f.Follower.Id}"
                     });
         }
 
@@ -73,7 +74,7 @@ namespace InstaminiWebService.Controllers
             }
             else
             {
-                if (retrievedFollow.IsActive)
+                if (retrievedFollow.IsActive.Value)
                 {
                     return BadRequest(new { Err = "Already followed!" });
                 }
@@ -114,7 +115,7 @@ namespace InstaminiWebService.Controllers
             {
                 return BadRequest(new { Err = "Not yet followed!" });
             }
-            if (!retrievedFollow.IsActive)
+            if (!retrievedFollow.IsActive.Value)
             {
                 return BadRequest(new { Err = "Already unfollowed!" });
             }

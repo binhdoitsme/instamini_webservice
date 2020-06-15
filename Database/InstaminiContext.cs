@@ -16,6 +16,7 @@ namespace InstaminiWebService.Database
         {
         }
 
+        public virtual DbSet<AvatarPhoto> AvatarPhotos { get; set; }
         public virtual DbSet<Comment> Comments { get; set; }
         public virtual DbSet<Follow> Follows { get; set; }
         public virtual DbSet<Like> Likes { get; set; }
@@ -25,6 +26,32 @@ namespace InstaminiWebService.Database
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            modelBuilder.Entity<AvatarPhoto>(entity =>
+            {
+                entity.HasKey(e => new { e.Id, e.UserId })
+                    .HasName("PRIMARY");
+
+                entity.ToTable("avatar_photos");
+
+                entity.HasIndex(e => e.UserId)
+                    .HasName("FKAvatarPhotos892102_idx");
+
+                entity.Property(e => e.Id).HasColumnName("id");
+
+                entity.Property(e => e.UserId).HasColumnName("user_id");
+
+                entity.Property(e => e.FileName)
+                    .IsRequired()
+                    .HasColumnName("file_name")
+                    .HasMaxLength(512)
+                    .IsUnicode(false);
+
+                entity.HasOne(d => d.User)
+                    .WithOne(p => p.AvatarPhoto)
+                    .HasForeignKey<AvatarPhoto>(p => p.UserId)
+                    .HasConstraintName("FKAvatarPhotos892102");
+            });
+
             modelBuilder.Entity<Comment>(entity =>
             {
                 entity.HasKey(e => new { e.Id, e.UserId, e.PostId })
@@ -90,7 +117,6 @@ namespace InstaminiWebService.Database
                 entity.HasOne(d => d.User)
                     .WithMany(p => p.Followers)
                     .HasForeignKey(d => d.UserId)
-                    .OnDelete(DeleteBehavior.ClientSetNull)
                     .HasConstraintName("FKFollows549480");
             });
 
@@ -116,13 +142,11 @@ namespace InstaminiWebService.Database
                 entity.HasOne(d => d.LikedPostNavigation)
                     .WithMany(p => p.Likes)
                     .HasForeignKey(d => d.LikedPost)
-                    .OnDelete(DeleteBehavior.ClientSetNull)
                     .HasConstraintName("FKLikes252442");
 
                 entity.HasOne(d => d.User)
                     .WithMany(p => p.Likes)
                     .HasForeignKey(d => d.UserId)
-                    .OnDelete(DeleteBehavior.ClientSetNull)
                     .HasConstraintName("FKLikes318134");
             });
 
@@ -151,7 +175,6 @@ namespace InstaminiWebService.Database
                 entity.HasOne(d => d.Post)
                     .WithMany(p => p.Photos)
                     .HasForeignKey(d => d.PostId)
-                    .OnDelete(DeleteBehavior.ClientSetNull)
                     .HasConstraintName("FKPhotos896484");
             });
 
@@ -177,7 +200,6 @@ namespace InstaminiWebService.Database
                 entity.HasOne(d => d.User)
                     .WithMany(p => p.Posts)
                     .HasForeignKey(d => d.UserId)
-                    .OnDelete(DeleteBehavior.ClientSetNull)
                     .HasConstraintName("FKPosts199121");
             });
 
@@ -202,7 +224,7 @@ namespace InstaminiWebService.Database
                 entity.Property(e => e.Password)
                     .IsRequired()
                     .HasColumnName("password")
-                    .HasMaxLength(64)
+                    .HasMaxLength(128)
                     .IsUnicode(false);
 
                 entity.Property(e => e.Salt)

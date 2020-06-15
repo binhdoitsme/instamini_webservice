@@ -12,10 +12,10 @@ namespace InstaminiWebService.ModelWrappers
         public int Id { get; private set; }
         public string Username { get; private set; }
         public string DisplayName { get; private set; }
+        public string AvatarLink { get; private set; }
         public DateTimeOffset Created { get; private set; }
         public int FollowerCount { get; private set; }
         public int FollowingCount { get; private set; }
-        
         public IEnumerable<object> Followers { get; private set; }
         public IEnumerable<object> Followings { get; private set; }
 
@@ -24,6 +24,7 @@ namespace InstaminiWebService.ModelWrappers
             Id = user.Id;
             Username = user.Username;
             DisplayName = user.DisplayName;
+            AvatarLink = user.AvatarPhoto.FileName;
             Created = user.Created;
             Followers = user.Followers.Select(f => new
             {

@@ -23,6 +23,7 @@ namespace InstaminiWebService.Models
         public DateTimeOffset LastUpdate { get; set; }
         public DateTimeOffset? LastLogin { get; set; }
 
+        public virtual AvatarPhoto AvatarPhoto { get; set; }
         public virtual ICollection<Comment> Comments { get; set; }
         public virtual ICollection<Follow> Followings { get; set; }
         public virtual ICollection<Follow> Followers { get; set; }
