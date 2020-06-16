@@ -21,8 +21,6 @@ namespace InstaminiWebService.Controllers
     [ApiController]
     public class UserController : ControllerBase
     {
-        private const string AVATAR_SERVING_PREFIX = "/avatars/";
-
         private readonly DbSet<User> UserContext;
         private readonly InstaminiContext DbContext;
         private readonly IModelWrapperFactory ModelWrapperFactory;
@@ -49,7 +47,6 @@ namespace InstaminiWebService.Controllers
         {
             return UserContext.Include(u => u.AvatarPhoto)
                     .Where(u => u.Username.Contains(query))
-                    .ForEach(u => u.AvatarPhoto.FileName = $"{AVATAR_SERVING_PREFIX}{u.AvatarPhoto.FileName}")
                     .Select(u => (UserWrapper)ModelWrapperFactory.Create(u));
         }
 
@@ -86,7 +83,6 @@ namespace InstaminiWebService.Controllers
             await DbContext.SaveChangesAsync();
 
             // format output
-            photo.FileName = $"{AVATAR_SERVING_PREFIX}{photo.FileName}";
             user.AvatarPhoto = photo;
             return Created(Url.Action("GetUserById", new { id = user.Id }), ModelWrapperFactory.Create(user));
         }
@@ -103,7 +99,6 @@ namespace InstaminiWebService.Controllers
             }
 
             // format output
-            retrievedUser.AvatarPhoto.FileName = $"{AVATAR_SERVING_PREFIX}{retrievedUser.AvatarPhoto.FileName}";
             return new JsonResult(ModelWrapperFactory.Create(retrievedUser));
         }
 

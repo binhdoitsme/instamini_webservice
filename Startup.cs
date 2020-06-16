@@ -54,6 +54,12 @@ namespace InstaminiWebService
                                     Configuration.GetValue("AvatarServingAbsolutePath", 
                                         Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"))),
                 RequestPath = "/avatars"
+            }).UseStaticFiles(new StaticFileOptions()
+            {
+                FileProvider = new PhysicalFileProvider(
+                                    Configuration.GetValue("PhotoServingAbsolutePath",
+                                        Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"))),
+                RequestPath = "/photos"
             });
 
             app.UseHttpsRedirection();

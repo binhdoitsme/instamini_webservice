@@ -18,13 +18,15 @@ namespace InstaminiWebService.ModelWrappers
         public int FollowingCount { get; private set; }
         public IEnumerable<object> Followers { get; private set; }
         public IEnumerable<object> Followings { get; private set; }
+        public string Link { get; private set; }
 
         public UserWrapper(User user)
         {
             Id = user.Id;
+            Link = $"/users/{Id}";
             Username = user.Username;
             DisplayName = user.DisplayName;
-            AvatarLink = user.AvatarPhoto.FileName;
+            AvatarLink = $"/avatars/{user.AvatarPhoto.FileName}";
             Created = user.Created;
             Followers = user.Followers.Select(f => new
             {

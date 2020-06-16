@@ -1,11 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using InstaminiWebService.Models;
+using InstaminiWebService.ModelWrappers.Base;
 
 namespace InstaminiWebService.ModelWrappers
 {
-    public class PhotoWrapper
+    public class PhotoWrapper : IModelWrapper<Photo>
     {
+        public string Link { get; private set; }
+
+        public PhotoWrapper(Photo photo)
+        {
+            Link = $"/photos/{photo.FileName}";
+        }
     }
 }
