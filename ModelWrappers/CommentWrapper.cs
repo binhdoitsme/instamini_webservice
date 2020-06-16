@@ -7,11 +7,12 @@ namespace InstaminiWebService.ModelWrappers
     public class CommentWrapper : IModelWrapper<Comment>
     {
         public int Id { get; private set; }
-        public int Content { get; private set; }
+        public string Content { get; private set; }
         public DateTimeOffset Timestamp { get; private set; }
         public string Username { get; private set; }
         public string UserLink { get; private set; }
         public string UserAvatar { get; private set; }
+        public string Link { get; private set; }
 
         public CommentWrapper(Comment comment)
         {
@@ -21,7 +22,8 @@ namespace InstaminiWebService.ModelWrappers
             var user = comment.User;
             Username = user.Username;
             UserLink = $"/users/{user.Id}";
-            UserAvatar = $"/avatars/{user.AvatarPhoto}";
+            UserAvatar = $"/avatars/{user.AvatarPhoto.FileName}";
+            Link = $"/comments/{Id}";
         }
     }
 }

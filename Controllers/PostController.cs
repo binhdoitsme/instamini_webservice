@@ -57,7 +57,7 @@ namespace InstaminiWebService.Controllers
             var current = await DbContext.Posts.Include(p => p.User).Where(p => p.Id == id).FirstOrDefaultAsync();
             if (userId != current?.UserId)
             {
-                return BadRequest(new { Err = "You do not have permission to delete this post!" });
+                return BadRequest(new { Err = "You do not have permission to change this post!" });
             }
 
             // perform update
