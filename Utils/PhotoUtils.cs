@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Drawing;
 using System.IO;
+using System.Drawing.Imaging;
 
 namespace InstaminiWebService.Utils
 {
@@ -42,9 +43,13 @@ namespace InstaminiWebService.Utils
             }
             var fileName = $"{Guid.NewGuid()}_{uploadedPhoto.FileName}";
             var targetFile = $"{targetDir}/{fileName}";
-            using (var fileSteam = new FileStream(targetFile, FileMode.Create))
+            using (var memoryStream = new MemoryStream())
+            using (var fileStream = new FileStream(targetFile, FileMode.Create))
             {
-                await uploadedPhoto.CopyToAsync(fileSteam);
+                await uploadedPhoto.CopyToAsync(memoryStream);
+                var original = Image.FromStream(memoryStream);
+                var resized = ImageUtils.ResizeImage(original);
+                resized.Save(fileStream, ImageFormat.Jpeg);
             }
             return fileName;
         }
