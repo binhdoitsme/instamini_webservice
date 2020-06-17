@@ -14,6 +14,8 @@ namespace InstaminiWebService.ModelWrappers
         public string UserAvatar { get; private set; }
         public string UserLink { get; private set; }
         public DateTimeOffset Created { get; private set; }
+        public int CommentCount { get; private set; }
+        public int LikeCount { get; private set; }
         public IEnumerable<CommentWrapper> Comments { get; private set; }
         public IEnumerable<string> LikedBy { get; private set; }
         public IEnumerable<PhotoWrapper> Photos { get; private set; }
@@ -29,7 +31,9 @@ namespace InstaminiWebService.ModelWrappers
             UserLink = $"/users/{post.UserId}";
             Created = post.Created.Value;
             Comments = post.Comments.Select(c => new CommentWrapper(c));
+            CommentCount = Comments.Count();
             LikedBy = post.Likes.Select(l => l.User.Username);
+            LikeCount = LikedBy.Count();
             Photos = post.Photos.Select(p => new PhotoWrapper(p));
         }
     }
