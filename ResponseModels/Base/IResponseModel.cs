@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace InstaminiWebService.ModelWrappers.Base
+namespace InstaminiWebService.ResponseModels.Base
 {
-    public interface IModelWrapper<T> where T : class
+    public interface IResponseModel<T> where T : class
     {
     }
 }

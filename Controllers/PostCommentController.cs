@@ -1,7 +1,7 @@
 using InstaminiWebService.Database;
 using InstaminiWebService.Models;
-using InstaminiWebService.ModelWrappers;
-using InstaminiWebService.ModelWrappers.Factory;
+using InstaminiWebService.ResponseModels;
+using InstaminiWebService.ResponseModels.Factory;
 using InstaminiWebService.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,21 +19,21 @@ namespace InstaminiWebService.Controllers
     public class PostCommentController : ControllerBase
     {
         private readonly InstaminiContext DbContext;
-        private readonly IModelWrapperFactory ModelWrapperFactory;
+        private readonly IResponseModelFactory ResponseModelFactory;
 
-        public PostCommentController(InstaminiContext context, IModelWrapperFactory modelWrapperFactory)
+        public PostCommentController(InstaminiContext context, IResponseModelFactory responseModelFactory)
         {
             DbContext = context;
-            ModelWrapperFactory = modelWrapperFactory;
+            ResponseModelFactory = responseModelFactory;
         }
 
         [HttpGet] [AllowAnonymous]
-        public async Task<IEnumerable<CommentWrapper>> GetCommentsByPostId([FromRoute(Name = "id")] int postId)
+        public async Task<IEnumerable<CommentResponse>> GetCommentsByPostId([FromRoute(Name = "id")] int postId)
         {
             return await DbContext.Comments
                             .Include(c => c.User).ThenInclude(u => u.AvatarPhoto)
                             .Where(c => c.PostId == postId)
-                            .Select(c => (CommentWrapper)ModelWrapperFactory.Create(c))
+                            .Select(c => (CommentResponse)ResponseModelFactory.Create(c))
                             .ToListAsync();
         }
 
@@ -54,11 +54,7 @@ namespace InstaminiWebService.Controllers
             int _userId = int.Parse(JwtUtils.ValidateJWT(jwt)?.Claims
                                 .Where(claim => claim.Type == ClaimTypes.NameIdentifier)
                                 .FirstOrDefault().Value);
-            if (comment.UserId != _userId)
-            {
-                return BadRequest(new { Err = "Cannot create a comment on behalf of another!" });
-            }
-
+            comment.UserId = _userId;
             comment.Timestamp = DateTimeOffset.UtcNow;
             DbContext.Add(comment);
             await DbContext.SaveChangesAsync();
@@ -68,7 +64,7 @@ namespace InstaminiWebService.Controllers
                             .Include(u => u.AvatarPhoto)
                             .LoadAsync();
             var url = Url.Action("GetCommentById", "Comment", new { id = comment.Id });
-            return Created(url, ModelWrapperFactory.Create(comment));
+            return Created(url, ResponseModelFactory.Create(comment));
         }
     }
 }

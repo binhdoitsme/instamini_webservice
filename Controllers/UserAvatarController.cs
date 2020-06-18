@@ -15,38 +15,39 @@ using System.Threading.Tasks;
 
 namespace InstaminiWebService.Controllers
 {
-    [Route("users/{id}/avatar")]
+    [Route("users/{username}/avatar")]
     public class UserAvatarController : ControllerBase
     {
-        private readonly IConfiguration Configuration;
         private readonly InstaminiContext DbContext;
         private readonly string AvatarServingPath;
 
         public UserAvatarController(IConfiguration configuration, InstaminiContext context)
         {
-            Configuration = configuration;
             DbContext = context;
             AvatarServingPath = configuration.GetValue<string>("AvatarServingAbsolutePath");
         }
 
         [HttpPatch] [Authorize]
-        public async Task<IActionResult> UpdateAvatar([FromRoute] int id, [FromForm] IFormFile newAvatar)
+        public async Task<IActionResult> UpdateAvatar([FromRoute] string username, [FromForm] IFormFile newAvatar)
         {
             string jwt = Request.Cookies["Token"];
             if (string.IsNullOrEmpty(jwt))
             {
                 return BadRequest(new { Err = "Unauthorized user!" });
             }
-            int userId = int.Parse(JwtUtils.ValidateJWT(jwt)?.Claims
-                                .Where(claim => claim.Type == ClaimTypes.NameIdentifier)
-                                .FirstOrDefault().Value);
-            if (userId != id)
+            string jwtUsername = JwtUtils.ValidateJWT(jwt)?.Claims
+                                .Where(claim => claim.Type == ClaimTypes.Name)
+                                .FirstOrDefault().Value;
+            if (jwtUsername != username)
             {
                 return BadRequest(new { Err = "You cannot update others' avatars!" });
             }
 
             // get avatar record
-            var avatarRecord = await DbContext.AvatarPhotos.Where(a => a.UserId == id).FirstOrDefaultAsync();
+            var avatarRecord = await DbContext.AvatarPhotos
+                                        .Include(a => a.User)
+                                        .Where(a => a.User.Username == username)
+                                        .FirstOrDefaultAsync();
 
             // upload photo
             try

@@ -5,11 +5,14 @@ using System.Security.Principal;
 using System.Threading.Tasks;
 using InstaminiWebService.Database;
 using InstaminiWebService.Models;
+using InstaminiWebService.ResponseModels;
+using InstaminiWebService.ResponseModels.Factory;
 using InstaminiWebService.Utils;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace InstaminiWebService.Controllers
 {
@@ -18,17 +21,23 @@ namespace InstaminiWebService.Controllers
     public class SessionController : ControllerBase
     {
         private readonly InstaminiContext DbContext;
+        private readonly IResponseModelFactory ResponseModelFactory;
 
-        public SessionController(InstaminiContext context)
+        public SessionController(InstaminiContext context, IResponseModelFactory responseModelFactory)
         {
             DbContext = context;
+            ResponseModelFactory = responseModelFactory;
         }
 
         [HttpPost] [AllowAnonymous]
-        public IActionResult BeginSession([FromBody] User _user)
+        public async Task<IActionResult> BeginSession([FromBody] User _user)
         {
             // validate username/password
-            User user = DbContext.Users.Where(u => u.Username == _user.Username).FirstOrDefault();
+            User user = DbContext.Users
+                            .Include(u => u.AvatarPhoto)
+                            .Include(u => u.Followers)
+                            .Include(u => u.Followings)
+                            .Where(u => u.Username == _user.Username).FirstOrDefault();
             bool isValidUser = false;
             if (user != null)
             {
@@ -42,15 +51,19 @@ namespace InstaminiWebService.Controllers
             }
 
             // else create and set-cookie JWT string
+            DbContext.Entry(user).CurrentValues.SetValues(new { LastLogin = DateTimeOffset.UtcNow });
+            await DbContext.SaveChangesAsync();
+            
             string jwt = JwtUtils.CreateJwt(user.Username, user.Id);
             var principal = JwtUtils.ValidateJWT(jwt);
+            var userResponse = (UserResponse)ResponseModelFactory.Create(user);
 
             HttpContext.Response.Cookies.Append("Token", jwt, new CookieOptions
             {
                 HttpOnly = true,
                 Secure = true
             });
-            return Ok(new { token = jwt });
+            return Ok(new { userResponse.Id, userResponse.Username, Token = jwt, userResponse.Link });
         }
 
         [HttpGet] [AllowAnonymous]
@@ -60,7 +73,7 @@ namespace InstaminiWebService.Controllers
         }
 
         [HttpDelete] [Authorize]
-        public IActionResult InvalidateSession([FromBody] string jwt)
+        public IActionResult InvalidateSession([FromQuery(Name = "key")] string jwt)
         {
             JwtUtils.InvalidateJWT(jwt);
             return Ok();

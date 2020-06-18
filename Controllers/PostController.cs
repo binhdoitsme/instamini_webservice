@@ -1,7 +1,7 @@
 ﻿using InstaminiWebService.Database;
 using InstaminiWebService.Models;
-using InstaminiWebService.ModelWrappers;
-using InstaminiWebService.ModelWrappers.Factory;
+using InstaminiWebService.ResponseModels;
+using InstaminiWebService.ResponseModels.Factory;
 using InstaminiWebService.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,18 +18,18 @@ namespace InstaminiWebService.Controllers
     public class PostController : ControllerBase
     {
         private readonly InstaminiContext DbContext;
-        private readonly IModelWrapperFactory ModelWrapperFactory;
+        private readonly IResponseModelFactory ResponseModelFactory;
 
-        public PostController(InstaminiContext context, IModelWrapperFactory modelWrapperFactory)
+        public PostController(InstaminiContext context, IResponseModelFactory responseModelFactory)
         {
             DbContext = context;
-            ModelWrapperFactory = modelWrapperFactory;
+            ResponseModelFactory = responseModelFactory;
         }
 
         [HttpGet]
         public async Task<object> GetPostById([FromRoute] int id)
         {
-            return ModelWrapperFactory.Create(await DbContext.Posts
+            return ResponseModelFactory.Create(await DbContext.Posts
                         .Include(p => p.User).ThenInclude(u => u.AvatarPhoto)
                         .Include(p => p.Likes)
                         .Include(p => p.Photos)
@@ -61,11 +61,16 @@ namespace InstaminiWebService.Controllers
             }
 
             // perform update
-            var originalPost = await DbContext.Posts.FindAsync(id);
+            var originalPost = await DbContext.Posts
+                                    .Include(p => p.User).ThenInclude(u => u.AvatarPhoto)
+                                    .Include(p => p.Likes)
+                                    .Include(p => p.Photos)
+                                    .Include(p => p.Comments)
+                                    .SingleOrDefaultAsync(p => p.Id == id);
             DbContext.Entry(originalPost).CurrentValues.SetValues(new { toBeUpdated.Caption });
             await DbContext.SaveChangesAsync();
 
-            return Ok();
+            return Ok(ResponseModelFactory.Create(originalPost));
         }
 
         [HttpDelete] [Authorize]

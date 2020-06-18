@@ -1,10 +1,10 @@
 using InstaminiWebService.Models;
-using InstaminiWebService.ModelWrappers.Base;
+using InstaminiWebService.ResponseModels.Base;
 using System;
 
-namespace InstaminiWebService.ModelWrappers
+namespace InstaminiWebService.ResponseModels
 {
-    public class CommentWrapper : IModelWrapper<Comment>
+    public class CommentResponse : IResponseModel<Comment>
     {
         public int Id { get; private set; }
         public string Content { get; private set; }
@@ -14,14 +14,14 @@ namespace InstaminiWebService.ModelWrappers
         public string UserAvatar { get; private set; }
         public string Link { get; private set; }
 
-        public CommentWrapper(Comment comment)
+        public CommentResponse(Comment comment)
         {
             Id = comment.Id;
             Content = comment.Content;
             Timestamp = comment.Timestamp;
             var user = comment.User;
             Username = user.Username;
-            UserLink = $"/users/{user.Id}";
+            UserLink = $"/users/{user.Username}";
             UserAvatar = $"/avatars/{user.AvatarPhoto.FileName}";
             Link = $"/comments/{Id}";
         }

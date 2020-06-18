@@ -1,5 +1,5 @@
 using InstaminiWebService.Database;
-using InstaminiWebService.ModelWrappers.Factory;
+using InstaminiWebService.ResponseModels.Factory;
 using InstaminiWebService.Utils;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -37,7 +37,7 @@ namespace InstaminiWebService
                             options.UseMySQL(Configuration.GetConnectionString("Instamini"));
                             options.UseLoggerFactory(LoggerFactory.Create(builder => builder.AddConsole()));
                         })
-                    .AddSingleton<IModelWrapperFactory>(new ModelWrapperFactory());
+                    .AddSingleton<IResponseModelFactory>(new ResponseModelFactory());
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

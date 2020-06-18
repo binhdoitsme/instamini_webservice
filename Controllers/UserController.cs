@@ -1,7 +1,7 @@
 ﻿using InstaminiWebService.Database;
 using InstaminiWebService.Models;
-using InstaminiWebService.ModelWrappers;
-using InstaminiWebService.ModelWrappers.Factory;
+using InstaminiWebService.ResponseModels;
+using InstaminiWebService.ResponseModels.Factory;
 using InstaminiWebService.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,8 +9,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -23,19 +21,19 @@ namespace InstaminiWebService.Controllers
     {
         private readonly DbSet<User> UserContext;
         private readonly InstaminiContext DbContext;
-        private readonly IModelWrapperFactory ModelWrapperFactory;
+        private readonly IResponseModelFactory ResponseModelFactory;
         private readonly ILogger Logger;
         private readonly IConfiguration Configuration;
         private readonly string DefaultAvatarPath;
 
         public UserController(InstaminiContext context, 
-                              IModelWrapperFactory modelWrapperFactory,
+                              IResponseModelFactory responseModelFactory,
                               ILogger<UserController> logger,
                               IConfiguration configuration)
         {
             DbContext = context;
             UserContext = context.Users;
-            ModelWrapperFactory = modelWrapperFactory;
+            ResponseModelFactory = responseModelFactory;
             Logger = logger;
             Configuration = configuration;
             DefaultAvatarPath = Configuration.GetValue<string>("DefaultAvatar");
@@ -43,11 +41,30 @@ namespace InstaminiWebService.Controllers
 
         [HttpGet]
         [AllowAnonymous]
-        public IEnumerable<UserWrapper> FindUsersByQuery([FromQuery(Name = "q")][Required] string query)
+        public async Task<IActionResult> FindUsersByQueryOrId([FromQuery(Name = "q")] string query,
+                                                        [FromQuery] int? id)
         {
-            return UserContext.Include(u => u.AvatarPhoto)
-                    .Where(u => u.Username.Contains(query))
-                    .Select(u => (UserWrapper)ModelWrapperFactory.Create(u));
+            if ((query is null && id is null) || (!(query is null) && !(id is null)))
+            {
+                return BadRequest(new { Err = "You must only supply id or query!" });
+            }
+
+            if (query != null)
+            {
+                var result = await UserContext.Include(u => u.AvatarPhoto)
+                                    .Where(u => u.Username.Contains(query))
+                                    .Select(u => (UserResponse)ResponseModelFactory.Create(u))
+                                    .ToListAsync();
+                return Ok(result);
+            }
+            else
+            {
+                var result = await UserContext.Include(u => u.AvatarPhoto)
+                                        .Where(u => u.Id == id)
+                                        .FirstOrDefaultAsync();
+                return Ok(ResponseModelFactory.Create(result));
+            }
+            
         }
 
         [HttpPost]
@@ -65,6 +82,8 @@ namespace InstaminiWebService.Controllers
             string hashedPass = PasswordUtils.HashPasswordWithSalt(originalPass, salt);
             var now = DateTimeOffset.UtcNow;
 
+            user.Username = user.Username.Trim();
+            user.DisplayName = user.DisplayName.Trim();
             user.Password = hashedPass;
             user.Salt = salt;
             user.Created = now;
@@ -84,36 +103,58 @@ namespace InstaminiWebService.Controllers
 
             // format output
             user.AvatarPhoto = photo;
-            return Created(Url.Action("GetUserById", new { id = user.Id }), ModelWrapperFactory.Create(user));
+            return Created(Url.Action("GetUserByUsername", new { username = user.Username }), ResponseModelFactory.Create(user));
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("{username}")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetUserById([FromRoute] int id)
+        public async Task<IActionResult> GetUserByUsername([FromRoute] string username)
         {
             var retrievedUser = await UserContext.Include(u => u.AvatarPhoto)
-                                        .Where(u => u.Id == id).FirstOrDefaultAsync();
+                                        .Where(u => u.Username == username).FirstOrDefaultAsync();
             if (retrievedUser == null)
             {
                 return NotFound();
             }
 
             // format output
-            return new JsonResult(ModelWrapperFactory.Create(retrievedUser));
+            return Ok(ResponseModelFactory.Create(retrievedUser));
         }
 
-        [HttpPatch("{id}")]
+        [HttpPatch("{username}")]
         [Authorize]
-        public async Task<IActionResult> UpdateUser([FromBody] User user, [FromRoute] int id)
+        public async Task<IActionResult> UpdateUser([FromBody] User user, 
+                                                    [FromRoute] string username)
         {
-            if (user.Id != id)
+            var retrievedUser = await DbContext.Users
+                                    .Include(u => u.AvatarPhoto)
+                                    .FirstOrDefaultAsync(x => x.Id == user.Id);
+
+            if (retrievedUser.Username != username)
             {
                 return BadRequest(new { Err =  "You are trying to update an account of another!" });
             }
+            string jwt = Request.Cookies["Token"];
+            if (string.IsNullOrEmpty(jwt))
+            {
+                return BadRequest(new { Err = "Unauthorized user!" });
+            }
+            string jwtUsername = JwtUtils.ValidateJWT(jwt)?.Claims
+                                .Where(claim => claim.Type == ClaimTypes.Name)
+                                .FirstOrDefault().Value;
+            if (jwtUsername != username)
+            {
+                return BadRequest(new { Err = "You cannot delete others' accounts!" });
+            }
+
+            // check username
+            if (DbContext.Users.Any(u => u.Username == user.Username))
+            {
+                return BadRequest(new { Err = "Username is duplicated!" });
+            }
+
             // Perform password update right here
             // ----------------------------------
-            var retrievedUser = await DbContext.Users
-                                    .FirstOrDefaultAsync(x => x.Id == user.Id);
 
             if (!string.IsNullOrEmpty(user.Password))
             {
@@ -132,18 +173,27 @@ namespace InstaminiWebService.Controllers
                 user.Created = retrievedUser.Created;
             }
 
+            if (string.IsNullOrEmpty(user.Username))
+            {
+                user.Username = retrievedUser.Username;
+            }
+            if (string.IsNullOrEmpty(user.DisplayName))
+            {
+                user.DisplayName = retrievedUser.DisplayName;
+            }
+
             var now = DateTime.UtcNow;
             user.LastUpdate = now;
 
             // After password update
             DbContext.Entry(retrievedUser).CurrentValues.SetValues(user);
             await DbContext.SaveChangesAsync();
-            return Ok();
+            return Ok(ResponseModelFactory.Create(retrievedUser));
         }
 
-        [HttpDelete("{id}")]
+        [HttpDelete("{username}")]
         [Authorize]
-        public async Task<IActionResult> RemoveUser([FromRoute] int id)
+        public async Task<IActionResult> RemoveUser([FromRoute] string username)
         {
             // TODO: 
             // CAN ONLY REMOVE THE LOGGED IN USER WITH THE SAME ID, ELSE MUST FORBID
@@ -153,15 +203,15 @@ namespace InstaminiWebService.Controllers
             {
                 return BadRequest(new { Err =  "Unauthorized user!" });
             }
-            int userId = int.Parse(JwtUtils.ValidateJWT(jwt)?.Claims
-                                .Where(claim => claim.Type == ClaimTypes.NameIdentifier)
-                                .FirstOrDefault().Value);
-            if (userId != id)
+            string jwtUsername = JwtUtils.ValidateJWT(jwt)?.Claims
+                                .Where(claim => claim.Type == ClaimTypes.Name)
+                                .FirstOrDefault().Value;
+            if (jwtUsername != username)
             {
                 return BadRequest(new { Err =  "You cannot delete others' accounts!" });
             }
             // ---------------------------------------------
-            var retrievedUser = await UserContext.Where(u => u.Id == id).FirstOrDefaultAsync();
+            var retrievedUser = await UserContext.Where(u => u.Username == username).FirstOrDefaultAsync();
             if (retrievedUser == null)
             {
                 return NotFound();

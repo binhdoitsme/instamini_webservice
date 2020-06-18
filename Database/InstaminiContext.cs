@@ -237,7 +237,10 @@ namespace InstaminiWebService.Database
                     .IsRequired()
                     .HasColumnName("username")
                     .HasMaxLength(64)
-                    .IsUnicode(false);
+                    .IsUnicode(true);
+
+                entity.HasIndex(e => e.Username)
+                    .IsUnique();
             });
 
             OnModelCreatingPartial(modelBuilder);

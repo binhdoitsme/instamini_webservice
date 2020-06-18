@@ -1,7 +1,7 @@
 using InstaminiWebService.Database;
 using InstaminiWebService.Models;
-using InstaminiWebService.ModelWrappers;
-using InstaminiWebService.ModelWrappers.Factory;
+using InstaminiWebService.ResponseModels;
+using InstaminiWebService.ResponseModels.Factory;
 using InstaminiWebService.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,21 +18,21 @@ namespace InstaminiWebService.Controllers
     public class CommentController : ControllerBase
     {
         private readonly InstaminiContext DbContext;
-        private readonly IModelWrapperFactory ModelWrapperFactory;
+        private readonly IResponseModelFactory ResponseModelFactory;
 
-        public CommentController(InstaminiContext context, IModelWrapperFactory modelWrapperFactory)
+        public CommentController(InstaminiContext context, IResponseModelFactory responseModelFactory)
         {
             DbContext = context;
-            ModelWrapperFactory = modelWrapperFactory;
+            ResponseModelFactory = responseModelFactory;
         }
 
         [HttpGet]
-        public async Task<CommentWrapper> GetCommentById([FromRoute] int id)
+        public async Task<CommentResponse> GetCommentById([FromRoute] int id)
         {
             var result = await DbContext.Comments
                                 .Include(c => c.User).ThenInclude(u => u.AvatarPhoto)
                                 .Where(c => c.Id == id).FirstOrDefaultAsync();
-            return (CommentWrapper)ModelWrapperFactory.Create(result);
+            return (CommentResponse)ResponseModelFactory.Create(result);
         }
 
         [HttpPatch] [Authorize]
@@ -59,11 +59,13 @@ namespace InstaminiWebService.Controllers
             }
 
             // perform update
-            var originalPost = await DbContext.Comments.SingleOrDefaultAsync(c => c.Id == id);
+            var originalPost = await DbContext.Comments
+                                        .Include(c => c.User).ThenInclude(u => u.AvatarPhoto)
+                                        .SingleOrDefaultAsync(c => c.Id == id);
             DbContext.Entry(originalPost).CurrentValues.SetValues(new { toBeUpdated.Content });
             await DbContext.SaveChangesAsync();
 
-            return Ok();
+            return Ok(ResponseModelFactory.Create(originalPost));
         }
 
         [HttpDelete] [Authorize]

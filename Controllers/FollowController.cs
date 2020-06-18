@@ -13,7 +13,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InstaminiWebService.Controllers
 {
-    [Route("users/{id}/follows")]
+    [Route("users/{username}/follows")]
     [ApiController]
     public class FollowController : ControllerBase
     {
@@ -25,52 +25,80 @@ namespace InstaminiWebService.Controllers
         }
 
         [HttpGet]
-        public IEnumerable<object> GetFollowersByUser([FromRoute] int id)
+        public IEnumerable<object> GetFollowsByUsername([FromRoute] string username)
         {
-            return DbContext.Follows.Include(f => f.Follower)
-                    .Where(f => f.UserId == id)
-                    .Select(f => new
-                    {
-                        f.Follower.Id,
-                        f.Follower.Username,
-                        Link = $"/users/{f.Follower.Id}"
-                    });
+            return DbContext.Follows
+                    .Include(f => f.User)
+                    .Include(f => f.Follower)
+                    .Where(f => f.User.Username == username)
+                    .Select(f => CreateFollowResponse(username, f));
+        }
+
+        private static dynamic CreateFollowResponse(string username, Follow f)
+        {
+            if (f.User.Username == username)
+            {
+                return new
+                {
+                    f.Follower.Id,
+                    f.Follower.Username,
+                    Type = "following",
+                    Link = $"/users/{f.Follower.Username}"
+                };
+            } else if (f.Follower.Username == username)
+            {
+                return new
+                {
+                    f.User.Id,
+                    f.User.Username,
+                    Type = "follower",
+                    Link = $"/users/{f.User.Username}"
+                };
+            } else
+            {
+                throw new InvalidOperationException();
+            }
         }
 
         [HttpPost]
         [Authorize]
-        public async Task<IActionResult> MakeFollowRelationship([FromRoute] int id, [FromQuery] int followedUser)
+        public async Task<IActionResult> MakeFollowRelationship([FromRoute] string username, 
+                                                                [FromQuery(Name = "f")] string followedUser)
         {
-            if (id == followedUser)
+            if (username == followedUser)
             {
                 return BadRequest(new { Err = "Cannot follow yourself!" });
             }
 
             string jwt = Request.Cookies["Token"];
-            int userId = int.Parse(JwtUtils.ValidateJWT(jwt)?.Claims
-                                .Where(claim => claim.Type == ClaimTypes.NameIdentifier)
-                                .FirstOrDefault().Value);
-            if (userId != id)
+            string jwtUsername = JwtUtils.ValidateJWT(jwt)?.Claims
+                                    .Where(claim => claim.Type == ClaimTypes.Name)
+                                    .FirstOrDefault().Value;
+            if (jwtUsername != username)
             {
                 return BadRequest(new { Err = "You cannot make follows on others' accounts!" });
             }
-            if (DbContext.Users.Find(followedUser) == null)
+            var user = await DbContext.Users.SingleOrDefaultAsync(u => u.Username == username);
+            var userToBeFollowed = await DbContext.Users.SingleOrDefaultAsync(u => u.Username == followedUser);
+            if (userToBeFollowed is null)
             {
                 return BadRequest(new { Err = "Followed user does not exists!" });
             }
 
             // make follows
             Follow retrievedFollow = await DbContext.Follows
-                                            .Where(f => f.UserId == id && f.FollowerId == followedUser)
+                                            .Where(f => f.UserId == user.Id
+                                                        && f.FollowerId == userToBeFollowed.Id)
                                             .FirstOrDefaultAsync();
             if (retrievedFollow is null)
             {
-                DbContext.Add(new Follow()
+                retrievedFollow = new Follow()
                 {
-                    UserId = id,
-                    FollowerId = followedUser,
+                    UserId = user.Id,
+                    FollowerId = userToBeFollowed.Id,
                     IsActive = true
-                });
+                };
+                DbContext.Add(retrievedFollow);
             }
             else
             {
@@ -82,34 +110,44 @@ namespace InstaminiWebService.Controllers
             }
 
             await DbContext.SaveChangesAsync();
-            return Ok();
+            return Ok(new
+            {
+                retrievedFollow.Follower.Id,
+                retrievedFollow.Follower.Username,
+                Type = "following",
+                Link = $"/users/{retrievedFollow.Follower.Username}"
+            });
         }
 
         [HttpDelete]
         [Authorize]
-        public async Task<IActionResult> StopFollowing([FromRoute] int id, [FromQuery] int followedUser)
+        public async Task<IActionResult> StopFollowing([FromRoute] string username,
+                                                        [FromQuery(Name = "f")] string followedUser)
         {
-            if (id == followedUser)
+            if (username == followedUser)
             {
                 return BadRequest(new { Err = "Cannot follow yourself!" });
             }
 
             string jwt = Request.Cookies["Token"];
-            int userId = int.Parse(JwtUtils.ValidateJWT(jwt)?.Claims
-                                .Where(claim => claim.Type == ClaimTypes.NameIdentifier)
-                                .FirstOrDefault().Value);
-            if (userId != id)
+            string jwtUsername = JwtUtils.ValidateJWT(jwt)?.Claims
+                                    .Where(claim => claim.Type == ClaimTypes.Name)
+                                    .FirstOrDefault().Value;
+            if (jwtUsername != username)
             {
                 return BadRequest(new { Err = "You cannot make follows on others' accounts!" });
             }
-            if (DbContext.Users.Find(followedUser) == null)
+            var user = await DbContext.Users.SingleOrDefaultAsync(u => u.Username == username);
+            var userToBeFollowed = await DbContext.Users.SingleOrDefaultAsync(u => u.Username == followedUser);
+            if (userToBeFollowed is null)
             {
                 return BadRequest(new { Err = "Followed user does not exists!" });
             }
 
             // deactivate follow
             Follow retrievedFollow = await DbContext.Follows
-                                            .Where(f => f.UserId == id && f.FollowerId == followedUser)
+                                            .Where(f => f.UserId == user.Id
+                                                        && f.FollowerId == userToBeFollowed.Id)
                                             .FirstOrDefaultAsync();
             if (retrievedFollow is null)
             {

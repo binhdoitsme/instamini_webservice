@@ -5,8 +5,8 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using InstaminiWebService.Database;
 using InstaminiWebService.Models;
-using InstaminiWebService.ModelWrappers;
-using InstaminiWebService.ModelWrappers.Factory;
+using InstaminiWebService.ResponseModels;
+using InstaminiWebService.ResponseModels.Factory;
 using InstaminiWebService.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -16,38 +16,47 @@ using Microsoft.Extensions.Configuration;
 
 namespace InstaminiWebService.Controllers
 {
-    [Route("users/{userId}/posts")]
+    [Route("users/{username}/posts")]
     [ApiController]
     public class UserPostController : ControllerBase
     {
         private readonly InstaminiContext DbContext;
-        private readonly IModelWrapperFactory ModelWrapperFactory;
+        private readonly IResponseModelFactory ResponseModelFactory;
         private readonly string PhotoServingPath;
 
         public UserPostController(InstaminiContext dbContext,
-                                    IModelWrapperFactory modelWrapperFactory,
+                                    IResponseModelFactory responseModelFactory,
                                     IConfiguration configuration)
         {
             DbContext = dbContext;
-            ModelWrapperFactory = modelWrapperFactory;
+            ResponseModelFactory = responseModelFactory;
             PhotoServingPath = configuration.GetValue<string>("PhotoServingAbsolutePath");
         }
 
         [HttpPost] [Authorize]
         public async Task<IActionResult> CreatePost([FromForm] string caption, 
                                                     [FromForm] IList<IFormFile> uploads, 
-                                                    [FromRoute] int userId)
+                                                    [FromRoute] string username)
         {
             if (uploads.Count <= 0)
             {
                 return BadRequest(new { Err = "Cannot create a post without any photo!" });
             }
 
+            // validate user
+            var user = await DbContext.Users.SingleOrDefaultAsync(u => u.Username == username);
+            if (user is null)
+            {
+                return BadRequest(new { Err = "Unauthorized user!" });
+            }
+
+            var transaction = DbContext.Database.BeginTransaction();
+
             // create post content
             var post = new Post()
             {
                 Caption = caption,
-                UserId = userId,
+                UserId = user.Id,
                 Created = DateTimeOffset.UtcNow
             };
             DbContext.Add(post);
@@ -68,24 +77,26 @@ namespace InstaminiWebService.Controllers
             DbContext.AddRange(uploadedFiles);
             await DbContext.SaveChangesAsync();
 
-            return Created(Url.Action("GetPostById", "Post", new { id = post.Id }), ModelWrapperFactory.Create(post));
+            await transaction.CommitAsync();
+
+            return Created(Url.Action("GetPostById", "Post", new { id = post.Id }), ResponseModelFactory.Create(post));
         }
 
         [HttpGet] [AllowAnonymous]
-        public async Task<IEnumerable<PostWrapper>> GetPostsByUser([FromRoute] int userId)
+        public async Task<IEnumerable<PostResponse>> GetPostsByUser([FromRoute] string username)
         {
             return await DbContext.Posts
                                 .Include(p => p.Photos)
                                 .Include(p => p.Likes)
                                 .Include(p => p.User).ThenInclude(u => u.AvatarPhoto)
-                                .Where(p => p.UserId == userId)
-                                .Select(p => (PostWrapper)ModelWrapperFactory.Create(p))
+                                .Where(p => p.User.Username == username)
+                                .Select(p => (PostResponse)ResponseModelFactory.Create(p))
                                 .AsNoTracking()
                                 .ToListAsync();
         }
         
-        [HttpGet("/users/{id}/feed")] [Authorize]
-        public async Task<IActionResult> GetFeedByUser([FromRoute(Name = "id")] int userId)
+        [HttpGet("/users/{username}/feed")] [Authorize]
+        public async Task<IActionResult> GetFeedByUser([FromRoute] string username)
         {
             // verify the current user
             string jwt = Request.Cookies["Token"];
@@ -93,10 +104,10 @@ namespace InstaminiWebService.Controllers
             {
                 return BadRequest(new { Err = "Unauthorized user!" });
             }
-            int _userId = int.Parse(JwtUtils.ValidateJWT(jwt)?.Claims
-                                .Where(claim => claim.Type == ClaimTypes.NameIdentifier)
-                                .FirstOrDefault().Value);
-            if (userId != _userId)
+            string jwtUsername = JwtUtils.ValidateJWT(jwt)?.Claims
+                                .Where(claim => claim.Type == ClaimTypes.Name)
+                                .FirstOrDefault().Value;
+            if (username != jwtUsername)
             {
                 return BadRequest(new { Err = "This is not your feed, get out!" });
             }
@@ -108,8 +119,8 @@ namespace InstaminiWebService.Controllers
                                     .ThenInclude(u => u.Followings)
                                 .Include(p => p.User)
                                     .ThenInclude(u => u.AvatarPhoto)
-                                .Where(p => p.UserId == userId)
-                                .Select(p => (PostWrapper)ModelWrapperFactory.Create(p))
+                                .Where(p => p.User.Username == username)
+                                .Select(p => (PostResponse)ResponseModelFactory.Create(p))
                                 .AsNoTracking()
                                 .ToListAsync();
             return new JsonResult(result);
