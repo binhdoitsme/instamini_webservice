@@ -31,7 +31,7 @@ namespace InstaminiWebService.Controllers
         {
             return ResponseModelFactory.Create(await DbContext.Posts
                         .Include(p => p.User).ThenInclude(u => u.AvatarPhoto)
-                        .Include(p => p.Likes)
+                        .Include(p => p.Likes).ThenInclude(l => l.User).ThenInclude(u => u.AvatarPhoto)
                         .Include(p => p.Photos)
                         .Include(p => p.Comments)
                         .FirstOrDefaultAsync(p => p.Id == id));
@@ -63,7 +63,7 @@ namespace InstaminiWebService.Controllers
             // perform update
             var originalPost = await DbContext.Posts
                                     .Include(p => p.User).ThenInclude(u => u.AvatarPhoto)
-                                    .Include(p => p.Likes)
+                                    .Include(p => p.Likes).ThenInclude(l => l.User).ThenInclude(u => u.AvatarPhoto)
                                     .Include(p => p.Photos)
                                     .Include(p => p.Comments)
                                     .SingleOrDefaultAsync(p => p.Id == id);

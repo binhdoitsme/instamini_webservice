@@ -17,7 +17,7 @@ namespace InstaminiWebService.ResponseModels
         public int CommentCount { get; private set; }
         public int LikeCount { get; private set; }
         public IEnumerable<CommentResponse> Comments { get; private set; }
-        public IEnumerable<string> LikedBy { get; private set; }
+        public IEnumerable<LikeResponse> LikedBy { get; private set; }
         public IEnumerable<PhotoResponse> Photos { get; private set; }
         public string Link { get; private set; }
 
@@ -32,7 +32,7 @@ namespace InstaminiWebService.ResponseModels
             Created = post.Created.Value;
             Comments = post.Comments.Select(c => new CommentResponse(c));
             CommentCount = Comments.Count();
-            LikedBy = post.Likes.Select(l => l.User.Username);
+            LikedBy = post.Likes.Select(l => new LikeResponse(l));
             LikeCount = LikedBy.Count();
             Photos = post.Photos.Select(p => new PhotoResponse(p));
         }

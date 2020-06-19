@@ -87,7 +87,7 @@ namespace InstaminiWebService.Controllers
         {
             return await DbContext.Posts
                                 .Include(p => p.Photos)
-                                .Include(p => p.Likes)
+                                .Include(p => p.Likes).ThenInclude(l => l.User).ThenInclude(u => u.AvatarPhoto)
                                 .Include(p => p.User).ThenInclude(u => u.AvatarPhoto)
                                 .Where(p => p.User.Username == username)
                                 .Select(p => (PostResponse)ResponseModelFactory.Create(p))
