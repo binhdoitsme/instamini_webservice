@@ -14,7 +14,8 @@ namespace InstaminiWebService.ResponseModels.Factory
             { typeof(Comment), typeof(CommentResponse) },
             { typeof(Photo), typeof(PhotoResponse) },
             { typeof(Post), typeof(PostResponse) },
-            { typeof(User), typeof(UserResponse) }
+            { typeof(User), typeof(UserResponse) },
+            { typeof(Like), typeof(LikeResponse) }
         };
 
         public IResponseModel<T> Create<T>(T input) where T : class

@@ -55,8 +55,8 @@ namespace InstaminiWebService.Utils
             {
                 Response.Cookies.Delete("Token");
                 return AuthenticateResult.Fail("Token is invalid!");
-                
             }
+            Context.User = authResult;
             return AuthenticateResult.Success(new AuthenticationTicket(authResult, "TokenBased"));
         }
 
