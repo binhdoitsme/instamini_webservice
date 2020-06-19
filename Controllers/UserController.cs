@@ -62,6 +62,10 @@ namespace InstaminiWebService.Controllers
                 var result = await UserContext.Include(u => u.AvatarPhoto)
                                         .Where(u => u.Id == id)
                                         .FirstOrDefaultAsync();
+                if (result is null)
+                {
+                    return NotFound();
+                }
                 return Ok(ResponseModelFactory.Create(result));
             }
             
@@ -112,7 +116,7 @@ namespace InstaminiWebService.Controllers
         {
             var retrievedUser = await UserContext.Include(u => u.AvatarPhoto)
                                         .Where(u => u.Username == username).FirstOrDefaultAsync();
-            if (retrievedUser == null)
+            if (retrievedUser is null)
             {
                 return NotFound();
             }
@@ -129,6 +133,10 @@ namespace InstaminiWebService.Controllers
             var retrievedUser = await DbContext.Users
                                     .Include(u => u.AvatarPhoto)
                                     .FirstOrDefaultAsync(x => x.Id == user.Id);
+            if (retrievedUser is null)
+            {
+                return NotFound();
+            }
 
             if (retrievedUser.Username != username)
             {

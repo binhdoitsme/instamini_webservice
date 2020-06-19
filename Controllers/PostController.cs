@@ -29,12 +29,17 @@ namespace InstaminiWebService.Controllers
         [HttpGet]
         public async Task<object> GetPostById([FromRoute] int id)
         {
-            return ResponseModelFactory.Create(await DbContext.Posts
+            var dbResult = await DbContext.Posts
                         .Include(p => p.User).ThenInclude(u => u.AvatarPhoto)
                         .Include(p => p.Likes).ThenInclude(l => l.User).ThenInclude(u => u.AvatarPhoto)
                         .Include(p => p.Photos)
                         .Include(p => p.Comments)
-                        .FirstOrDefaultAsync(p => p.Id == id));
+                        .FirstOrDefaultAsync(p => p.Id == id);
+            if (dbResult is null)
+            {
+                return NotFound();
+            }
+            return ResponseModelFactory.Create(dbResult);
         }
 
         [HttpPatch]
@@ -67,6 +72,10 @@ namespace InstaminiWebService.Controllers
                                     .Include(p => p.Photos)
                                     .Include(p => p.Comments)
                                     .SingleOrDefaultAsync(p => p.Id == id);
+            if (originalPost is null)
+            {
+                return NotFound();
+            }
             DbContext.Entry(originalPost).CurrentValues.SetValues(new { toBeUpdated.Caption });
             await DbContext.SaveChangesAsync();
 

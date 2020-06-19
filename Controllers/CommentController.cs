@@ -27,12 +27,16 @@ namespace InstaminiWebService.Controllers
         }
 
         [HttpGet]
-        public async Task<CommentResponse> GetCommentById([FromRoute] int id)
+        public async Task<IActionResult> GetCommentById([FromRoute] int id)
         {
             var result = await DbContext.Comments
                                 .Include(c => c.User).ThenInclude(u => u.AvatarPhoto)
                                 .Where(c => c.Id == id).FirstOrDefaultAsync();
-            return (CommentResponse)ResponseModelFactory.Create(result);
+            if (result is null)
+            {
+                return NotFound();
+            }
+            return Ok((CommentResponse)ResponseModelFactory.Create(result));
         }
 
         [HttpPatch] [Authorize]
@@ -62,6 +66,10 @@ namespace InstaminiWebService.Controllers
             var originalPost = await DbContext.Comments
                                         .Include(c => c.User).ThenInclude(u => u.AvatarPhoto)
                                         .SingleOrDefaultAsync(c => c.Id == id);
+            if (originalPost is null)
+            {
+                return NotFound();
+            }
             DbContext.Entry(originalPost).CurrentValues.SetValues(new { toBeUpdated.Content });
             await DbContext.SaveChangesAsync();
 
