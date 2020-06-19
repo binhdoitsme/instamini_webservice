@@ -32,6 +32,12 @@ namespace InstaminiWebService
                         options =>
                         {
                         });
+            services.AddCors(o => o.AddPolicy("CorsPolicy", builder =>
+            {
+                builder.AllowAnyOrigin()
+                       .AllowAnyMethod()
+                       .AllowAnyHeader();
+            }));
             services.AddControllers();
             services.AddDbContext<InstaminiContext>(options => {
                             options.UseMySQL(Configuration.GetConnectionString("Instamini"));
@@ -61,6 +67,8 @@ namespace InstaminiWebService
                                         Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"))),
                 RequestPath = "/photos"
             });
+
+            app.UseCors("CorsPolicy");
 
             app.UseHttpsRedirection();
 
