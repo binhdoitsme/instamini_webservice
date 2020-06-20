@@ -32,7 +32,7 @@ namespace InstaminiWebService.ResponseModels
             Created = post.Created.Value;
             Comments = post.Comments.Select(c => new CommentResponse(c));
             CommentCount = Comments.Count();
-            LikedBy = post.Likes.Select(l => new LikeResponse(l));
+            LikedBy = post.Likes.Where(l => l.IsActive.Value).Select(l => new LikeResponse(l));
             LikeCount = LikedBy.Count();
             Photos = post.Photos.Select(p => new PhotoResponse(p));
         }
