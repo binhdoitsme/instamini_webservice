@@ -99,14 +99,7 @@ namespace InstaminiWebService.Controllers
         public async Task<IActionResult> GetFeedByUser([FromRoute] string username)
         {
             // verify the current user
-            string jwt = Request.Cookies["Token"];
-            if (string.IsNullOrEmpty(jwt))
-            {
-                return BadRequest(new { Err = "Unauthorized user!" });
-            }
-            string jwtUsername = JwtUtils.ValidateJWT(jwt)?.Claims
-                                .Where(claim => claim.Type == ClaimTypes.Name)
-                                .FirstOrDefault().Value;
+            string jwtUsername = User.FindFirst(ClaimTypes.Name).Value;
             if (username != jwtUsername)
             {
                 return BadRequest(new { Err = "This is not your feed, get out!" });
@@ -114,7 +107,12 @@ namespace InstaminiWebService.Controllers
 
             var result =  await DbContext.Posts
                                 .Include(p => p.Photos)
+                                .Include(p => p.Comments)
+                                    .ThenInclude(c => c.User)
+                                        .ThenInclude(u => u.AvatarPhoto)
                                 .Include(p => p.Likes)
+                                    .ThenInclude(l => l.User)
+                                        .ThenInclude(u => u.AvatarPhoto)
                                 .Include(p => p.User)
                                     .ThenInclude(u => u.Followings)
                                 .Include(p => p.User)
@@ -123,7 +121,7 @@ namespace InstaminiWebService.Controllers
                                 .Select(p => (PostResponse)ResponseModelFactory.Create(p))
                                 .AsNoTracking()
                                 .ToListAsync();
-            return new JsonResult(result);
+            return Ok(result);
         }
     }
 }
