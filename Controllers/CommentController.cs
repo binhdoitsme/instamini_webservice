@@ -48,14 +48,7 @@ namespace InstaminiWebService.Controllers
             }
 
             // verify the current user
-            string jwt = Request.Cookies["Token"];
-            if (string.IsNullOrEmpty(jwt))
-            {
-                return BadRequest(new { Err = "Unauthorized user!" });
-            }
-            int userId = int.Parse(JwtUtils.ValidateJWT(jwt)?.Claims
-                                .Where(claim => claim.Type == ClaimTypes.NameIdentifier)
-                                .FirstOrDefault().Value);
+            int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
             var current = await DbContext.Posts.Include(p => p.User).Where(p => p.Id == id).FirstOrDefaultAsync();
             if (userId != current?.UserId)
             {
@@ -87,14 +80,7 @@ namespace InstaminiWebService.Controllers
             }
 
             // verify the current user
-            string jwt = Request.Cookies["Token"];
-            if (string.IsNullOrEmpty(jwt))
-            {
-                return BadRequest(new { Err = "Unauthorized user!" });
-            }
-            int userId = int.Parse(JwtUtils.ValidateJWT(jwt)?.Claims
-                                .Where(claim => claim.Type == ClaimTypes.NameIdentifier)
-                                .FirstOrDefault().Value);
+            int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
             if (userId != toBeDeleted.UserId)
             {
                 return BadRequest(new { Err = "You do not have permission to delete this comment!" });

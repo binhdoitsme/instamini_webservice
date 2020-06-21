@@ -34,6 +34,7 @@ namespace InstaminiWebService.Controllers
                             .Include(c => c.User).ThenInclude(u => u.AvatarPhoto)
                             .Where(c => c.PostId == postId)
                             .Select(c => (CommentResponse)ResponseModelFactory.Create(c))
+                            .OrderByDescending(c => c.Timestamp)
                             .ToListAsync();
         }
 
@@ -46,14 +47,7 @@ namespace InstaminiWebService.Controllers
             }
 
             // verify the current user
-            string jwt = Request.Cookies["Token"];
-            if (string.IsNullOrEmpty(jwt))
-            {
-                return BadRequest(new { Err = "Unauthorized user!" });
-            }
-            int _userId = int.Parse(JwtUtils.ValidateJWT(jwt)?.Claims
-                                .Where(claim => claim.Type == ClaimTypes.NameIdentifier)
-                                .FirstOrDefault().Value);
+            int _userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
             comment.UserId = _userId;
             comment.Timestamp = DateTimeOffset.UtcNow;
             DbContext.Add(comment);
