@@ -49,7 +49,7 @@ namespace InstaminiWebService.Controllers
 
             // verify the current user
             int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-            var current = await DbContext.Posts.Include(p => p.User).Where(p => p.Id == id).FirstOrDefaultAsync();
+            var current = await DbContext.Comments.Include(p => p.User).Where(p => p.Id == id).FirstOrDefaultAsync();
             if (userId != current?.UserId)
             {
                 return BadRequest(new { Err = "You do not have permission to change this comment!" });
