@@ -60,6 +60,12 @@ namespace InstaminiWebService.Controllers
             }
         }
 
+        /// <summary>
+        /// A follower (current user) make a follow request to a user
+        /// </summary>
+        /// <param name="username"></param>
+        /// <param name="followedUser"></param>
+        /// <returns></returns>
         [HttpPost]
         [Authorize]
         public async Task<IActionResult> MakeFollowRelationship([FromRoute] string username, 
@@ -70,10 +76,7 @@ namespace InstaminiWebService.Controllers
                 return BadRequest(new { Err = "Cannot follow yourself!" });
             }
 
-            string jwt = Request.Cookies["Token"];
-            string jwtUsername = JwtUtils.ValidateJWT(jwt)?.Claims
-                                    .Where(claim => claim.Type == ClaimTypes.Name)
-                                    .FirstOrDefault().Value;
+            string jwtUsername = User.FindFirstValue(ClaimTypes.Name);
             if (jwtUsername != username)
             {
                 return BadRequest(new { Err = "You cannot make follows on others' accounts!" });
@@ -87,15 +90,15 @@ namespace InstaminiWebService.Controllers
 
             // make follows
             Follow retrievedFollow = await DbContext.Follows
-                                            .Where(f => f.UserId == user.Id
-                                                        && f.FollowerId == userToBeFollowed.Id)
+                                            .Where(f => f.FollowerId == user.Id
+                                                        && f.UserId == userToBeFollowed.Id)
                                             .FirstOrDefaultAsync();
             if (retrievedFollow is null)
             {
                 retrievedFollow = new Follow()
                 {
-                    UserId = user.Id,
-                    FollowerId = userToBeFollowed.Id,
+                    FollowerId = user.Id,
+                    UserId = userToBeFollowed.Id,
                     IsActive = true
                 };
                 DbContext.Add(retrievedFollow);
@@ -129,10 +132,7 @@ namespace InstaminiWebService.Controllers
                 return BadRequest(new { Err = "Cannot follow yourself!" });
             }
 
-            string jwt = Request.Cookies["Token"];
-            string jwtUsername = JwtUtils.ValidateJWT(jwt)?.Claims
-                                    .Where(claim => claim.Type == ClaimTypes.Name)
-                                    .FirstOrDefault().Value;
+            string jwtUsername = User.FindFirstValue(ClaimTypes.Name);
             if (jwtUsername != username)
             {
                 return BadRequest(new { Err = "You cannot make follows on others' accounts!" });
@@ -146,8 +146,8 @@ namespace InstaminiWebService.Controllers
 
             // deactivate follow
             Follow retrievedFollow = await DbContext.Follows
-                                            .Where(f => f.UserId == user.Id
-                                                        && f.FollowerId == userToBeFollowed.Id)
+                                            .Where(f => f.FollowerId == user.Id
+                                                        && f.UserId == userToBeFollowed.Id)
                                             .FirstOrDefaultAsync();
             if (retrievedFollow is null)
             {

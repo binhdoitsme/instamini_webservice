@@ -34,9 +34,10 @@ namespace InstaminiWebService
                         });
             services.AddCors(o => o.AddPolicy("CorsPolicy", builder =>
             {
-                builder.AllowAnyOrigin()
+                builder.WithOrigins("http://localhost:3000")
                        .AllowAnyMethod()
-                       .AllowAnyHeader();
+                       .AllowAnyHeader()
+                       .AllowCredentials();
             }));
             services.AddControllers();
             services.AddDbContext<InstaminiContext>(options => {

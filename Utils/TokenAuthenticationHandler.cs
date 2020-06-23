@@ -34,7 +34,7 @@ namespace InstaminiWebService.Utils
         protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
         {
             var apiKeyQuery = Request.Query["key"];
-            Logger.LogInformation($"key={apiKeyQuery}");
+            
             if (string.IsNullOrEmpty(apiKeyQuery))
             {
                 Response.Cookies.Delete("Token");
@@ -57,6 +57,7 @@ namespace InstaminiWebService.Utils
                 return AuthenticateResult.Fail("Token is invalid!");
             }
             Context.User = authResult;
+            Response.Cookies.Append("Token", apiKeyQuery);
             return AuthenticateResult.Success(new AuthenticationTicket(authResult, "TokenBased"));
         }
 

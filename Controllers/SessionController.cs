@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Security.Principal;
 using System.Threading.Tasks;
 using InstaminiWebService.Database;
@@ -35,8 +36,8 @@ namespace InstaminiWebService.Controllers
             // validate username/password
             User user = DbContext.Users
                             .Include(u => u.AvatarPhoto)
-                            .Include(u => u.Followers)
-                            .Include(u => u.Followings)
+                            .Include(u => u.Followers).ThenInclude(f => f.Follower)
+                            .Include(u => u.Followings).ThenInclude(f => f.User)
                             .Where(u => u.Username == _user.Username).FirstOrDefault();
             bool isValidUser = false;
             if (user != null)
@@ -58,23 +59,54 @@ namespace InstaminiWebService.Controllers
             var principal = JwtUtils.ValidateJWT(jwt);
             var userResponse = (UserResponse)ResponseModelFactory.Create(user);
 
-            HttpContext.Response.Cookies.Append("Token", jwt, new CookieOptions
+            HttpContext.Response.Cookies.Append("Token", jwt);
+            return Ok(new
             {
-                HttpOnly = true,
-                Secure = true
+                userResponse.Id,
+                userResponse.Username,
+                userResponse.DisplayName,
+                userResponse.AvatarLink,
+                Token = jwt,
+                userResponse.Link
             });
-            return Ok(new { userResponse.Id, userResponse.Username, Token = jwt, userResponse.Link });
         }
 
         [HttpGet] [AllowAnonymous]
-        public IActionResult ValidateSession([FromQuery] string token)
+        public async Task<IActionResult> ValidateSession([FromQuery(Name = "key")] string token)
         {
-            return new JsonResult(new { valid = JwtUtils.ValidateJWT(token) != null });
+            var validatedPrincipal = JwtUtils.ValidateJWT(token);
+            if (validatedPrincipal is null)
+            {
+                return Unauthorized();
+            }
+
+            int userId = int.Parse(validatedPrincipal.FindFirstValue(ClaimTypes.NameIdentifier));
+            var validatedUser = await DbContext.Users.Include(u => u.AvatarPhoto)
+                                                .Include(u => u.Followers).ThenInclude(f => f.Follower)
+                                                .Include(u => u.Followings).ThenInclude(f => f.User)
+                                                .FirstOrDefaultAsync(u => u.Id == userId);
+            var userResponse = (UserResponse)ResponseModelFactory.Create(validatedUser);
+
+            return Ok(new 
+            { 
+                userResponse.Id, 
+                userResponse.Username, 
+                userResponse.DisplayName, 
+                userResponse.AvatarLink,
+                Token = token, 
+                userResponse.Link 
+            });
         }
 
         [HttpDelete] [Authorize]
         public IActionResult InvalidateSession([FromQuery(Name = "key")] string jwt)
         {
+            var principal = JwtUtils.ValidateJWT(jwt);
+            if (principal is null)
+            {
+                return Unauthorized();
+            }
+            Response.Cookies.Delete("Token"); 
             JwtUtils.InvalidateJWT(jwt);
             return Ok();
         }

@@ -51,7 +51,9 @@ namespace InstaminiWebService.Controllers
 
             if (query != null)
             {
-                var result = await UserContext.Include(u => u.AvatarPhoto)
+                var result = await DbContext.Users.Include(u => u.AvatarPhoto)
+                                    .Include(u => u.Followers).ThenInclude(f => f.Follower)
+                                    .Include(u => u.Followings).ThenInclude(f => f.User)
                                     .Where(u => u.Username.Contains(query))
                                     .Select(u => (UserResponse)ResponseModelFactory.Create(u))
                                     .ToListAsync();
@@ -60,6 +62,7 @@ namespace InstaminiWebService.Controllers
             else
             {
                 var result = await UserContext.Include(u => u.AvatarPhoto)
+                                        .Include(u => u.Followers)
                                         .Where(u => u.Id == id)
                                         .FirstOrDefaultAsync();
                 if (result is null)

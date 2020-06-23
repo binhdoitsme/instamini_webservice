@@ -28,14 +28,16 @@ namespace InstaminiWebService.ResponseModels
             DisplayName = user.DisplayName;
             AvatarLink = $"/avatars/{user.AvatarPhoto.FileName}";
             Created = user.Created;
-            Followers = user.Followers.Select(f => new
+            Followers = user.Followers.Where(f => f.IsActive.Value).Select(f => new
             {
-                f.UserId,
-                f.User.DisplayName
+                f.FollowerId,
+                f.Follower.Username,
+                f.Follower.DisplayName
             });
-            Followings = user.Followings.Select(f => new
+            Followings = user.Followings.Where(f => f.IsActive.Value).Select(f => new
             {
                 f.UserId,
+                f.User.Username,
                 f.User.DisplayName
             });
             FollowerCount = Followers.Count();
