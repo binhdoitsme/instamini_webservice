@@ -105,6 +105,16 @@ namespace InstaminiWebService.Controllers
                 return BadRequest(new { Err = "This is not your feed, get out!" });
             }
 
+            // get related users
+            var relatedUsers = await DbContext.Users
+                                            .Include(u => u.Followings).ThenInclude(f => f.User)
+                                            .Where(u => u.Username == username)
+                                            .SelectMany(u => u.Followings)
+                                            .Where(f => f.IsActive.Value)
+                                            .Select(f => f.User.Username)
+                                            .AsNoTracking()
+                                            .ToListAsync();
+
             var result =  await DbContext.Posts
                                 .Include(p => p.Photos)
                                 .Include(p => p.Comments)
@@ -117,7 +127,8 @@ namespace InstaminiWebService.Controllers
                                     .ThenInclude(u => u.Followings)
                                 .Include(p => p.User)
                                     .ThenInclude(u => u.AvatarPhoto)
-                                .Where(p => p.User.Username == username)
+                                .Where(p => p.User.Username == username || relatedUsers.Contains(p.User.Username))
+                                .OrderByDescending(p => p.Created)
                                 .Select(p => (PostResponse)ResponseModelFactory.Create(p))
                                 .AsNoTracking()
                                 .ToListAsync();

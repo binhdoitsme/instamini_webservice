@@ -20,7 +20,10 @@ namespace InstaminiWebService
             Host.CreateDefaultBuilder(args)
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
-                    webBuilder.UseStartup<Startup>();
+                    webBuilder
+                        .UseKestrel()
+                        //.UseUrls("https://localhost:5001", "https://api.instamini.com/")
+                        .UseStartup<Startup>();
                 });
     }
 }

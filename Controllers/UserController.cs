@@ -118,6 +118,11 @@ namespace InstaminiWebService.Controllers
         public async Task<IActionResult> GetUserByUsername([FromRoute] string username)
         {
             var retrievedUser = await UserContext.Include(u => u.AvatarPhoto)
+                                        .Include(u => u.Posts).ThenInclude(p => p.Comments)
+                                        .Include(u => u.Posts).ThenInclude(p => p.Likes)
+                                        .Include(u => u.Posts).ThenInclude(p => p.Photos)
+                                        .Include(u => u.Followers).ThenInclude(u => u.Follower)
+                                        .Include(u => u.Followings).ThenInclude(u => u.User)
                                         .Where(u => u.Username == username).FirstOrDefaultAsync();
             if (retrievedUser is null)
             {

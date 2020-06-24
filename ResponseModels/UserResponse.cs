@@ -18,6 +18,7 @@ namespace InstaminiWebService.ResponseModels
         public int FollowingCount { get; private set; }
         public IEnumerable<object> Followers { get; private set; }
         public IEnumerable<object> Followings { get; private set; }
+        public IEnumerable<object> Posts { get; private set; }
         public string Link { get; private set; }
 
         public UserResponse(User user)
@@ -42,6 +43,15 @@ namespace InstaminiWebService.ResponseModels
             });
             FollowerCount = Followers.Count();
             FollowingCount = Followings.Count();
+            Posts = user.Posts.Select(p => new
+            {
+                p.Id,
+                Link = $"/posts/{p.Id}",
+                LikeCount = p.Likes.Count(l => l.IsActive.Value),
+                CommentCount = p.Comments.Count,
+                Thumbnail = $"/photos/{p.Photos.FirstOrDefault().FileName}"
+            });
+            
         }
     }
 }
