@@ -144,7 +144,7 @@ namespace InstaminiWebService.Controllers
         {
             var retrievedUser = await DbContext.Users
                                     .Include(u => u.AvatarPhoto)
-                                    .FirstOrDefaultAsync(x => x.Id == user.Id);
+                                    .FirstOrDefaultAsync(u => u.Username == username);
             if (retrievedUser is null)
             {
                 return NotFound();
@@ -154,14 +154,8 @@ namespace InstaminiWebService.Controllers
             {
                 return BadRequest(new { Err =  "You are trying to update an account of another!" });
             }
-            string jwt = Request.Cookies["Token"];
-            if (string.IsNullOrEmpty(jwt))
-            {
-                return BadRequest(new { Err = "Unauthorized user!" });
-            }
-            string jwtUsername = JwtUtils.ValidateJWT(jwt)?.Claims
-                                .Where(claim => claim.Type == ClaimTypes.Name)
-                                .FirstOrDefault().Value;
+            string jwtUsername = User.FindFirstValue(ClaimTypes.Name);
+
             if (jwtUsername != username)
             {
                 return BadRequest(new { Err = "You cannot delete others' accounts!" });
@@ -218,20 +212,13 @@ namespace InstaminiWebService.Controllers
             // TODO: 
             // CAN ONLY REMOVE THE LOGGED IN USER WITH THE SAME ID, ELSE MUST FORBID
             // ---------------------------------------------
-            string jwt = Request.Cookies["Token"];
-            if (string.IsNullOrEmpty(jwt))
-            {
-                return BadRequest(new { Err =  "Unauthorized user!" });
-            }
-            string jwtUsername = JwtUtils.ValidateJWT(jwt)?.Claims
-                                .Where(claim => claim.Type == ClaimTypes.Name)
-                                .FirstOrDefault().Value;
+            string jwtUsername = User.FindFirstValue(ClaimTypes.Name);
             if (jwtUsername != username)
             {
                 return BadRequest(new { Err =  "You cannot delete others' accounts!" });
             }
             // ---------------------------------------------
-            var retrievedUser = await UserContext.Where(u => u.Username == username).FirstOrDefaultAsync();
+            var retrievedUser = await UserContext.FirstOrDefaultAsync(u => u.Username == username);
             if (retrievedUser == null)
             {
                 return NotFound();
