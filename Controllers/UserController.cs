@@ -162,7 +162,9 @@ namespace InstaminiWebService.Controllers
             }
 
             // check username
-            if (DbContext.Users.Any(u => u.Username == user.Username))
+            if (!string.IsNullOrEmpty(user.Username)
+                && user.Username != username
+                && DbContext.Users.Any(u => u.Username == user.Username))
             {
                 return BadRequest(new { Err = "Username is duplicated!" });
             }
@@ -200,7 +202,13 @@ namespace InstaminiWebService.Controllers
             user.LastUpdate = now;
 
             // After password update
-            DbContext.Entry(retrievedUser).CurrentValues.SetValues(user);
+            DbContext.Entry(retrievedUser).CurrentValues.SetValues(new
+            {
+                user.Username,
+                user.Password,
+                user.DisplayName,
+                user.Salt
+            });
             await DbContext.SaveChangesAsync();
             return Ok(ResponseModelFactory.Create(retrievedUser));
         }
