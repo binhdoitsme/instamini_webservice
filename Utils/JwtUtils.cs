@@ -14,7 +14,7 @@ namespace InstaminiWebService.Utils
     {
         private const string SECRET = "xx_INSTA_X_MINI_SECRET_xx";
         private const string ISSUER = "INSTAMINI_WEB_SERVICE";
-        private const int EXPIRATION_IN_MINUTES = 20;
+        private const int EXPIRATION_IN_MINUTES = 60;
 
         private static readonly IList<string> JwtBlacklist = new List<string>();
 

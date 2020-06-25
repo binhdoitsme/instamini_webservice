@@ -34,11 +34,15 @@ namespace InstaminiWebService.Controllers
         public async Task<IActionResult> BeginSession([FromBody] User _user)
         {
             // validate username/password
-            User user = DbContext.Users
-                            .Include(u => u.AvatarPhoto)
-                            .Include(u => u.Followers).ThenInclude(f => f.Follower)
-                            .Include(u => u.Followings).ThenInclude(f => f.User)
-                            .Where(u => u.Username == _user.Username).FirstOrDefault();
+            User user = await DbContext.Users
+                                .Include(u => u.AvatarPhoto)
+                                .Include(u => u.Followers)
+                                    .ThenInclude(f => f.Follower)
+                                        .ThenInclude(f => f.AvatarPhoto)
+                                .Include(u => u.Followings)
+                                    .ThenInclude(f => f.User)
+                                        .ThenInclude(f => f.AvatarPhoto)
+                                .FirstOrDefaultAsync(u => u.Username == _user.Username);
             bool isValidUser = false;
             if (user != null)
             {
@@ -62,11 +66,12 @@ namespace InstaminiWebService.Controllers
             HttpContext.Response.Cookies.Append("Token", jwt);
             return Ok(new
             {
+                Token = jwt,
                 userResponse.Id,
                 userResponse.Username,
                 userResponse.DisplayName,
                 userResponse.AvatarLink,
-                Token = jwt,
+                userResponse.Followings,
                 userResponse.Link
             });
         }
@@ -82,18 +87,23 @@ namespace InstaminiWebService.Controllers
 
             int userId = int.Parse(validatedPrincipal.FindFirstValue(ClaimTypes.NameIdentifier));
             var validatedUser = await DbContext.Users.Include(u => u.AvatarPhoto)
-                                                .Include(u => u.Followers).ThenInclude(f => f.Follower)
-                                                .Include(u => u.Followings).ThenInclude(f => f.User)
+                                                .Include(u => u.Followers)
+                                                    .ThenInclude(f => f.Follower)
+                                                        .ThenInclude(f => f.AvatarPhoto)
+                                                .Include(u => u.Followings)
+                                                    .ThenInclude(f => f.User)
+                                                        .ThenInclude(f => f.AvatarPhoto)
                                                 .FirstOrDefaultAsync(u => u.Id == userId);
             var userResponse = (UserResponse)ResponseModelFactory.Create(validatedUser);
 
             return Ok(new 
-            { 
+            {
+                Token = token,
                 userResponse.Id, 
                 userResponse.Username, 
                 userResponse.DisplayName, 
                 userResponse.AvatarLink,
-                Token = token, 
+                userResponse.Followings,
                 userResponse.Link 
             });
         }

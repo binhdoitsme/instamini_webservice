@@ -30,14 +30,7 @@ namespace InstaminiWebService.Controllers
         [HttpPatch] [Authorize]
         public async Task<IActionResult> UpdateAvatar([FromRoute] string username, [FromForm] IFormFile newAvatar)
         {
-            string jwt = Request.Cookies["Token"];
-            if (string.IsNullOrEmpty(jwt))
-            {
-                return BadRequest(new { Err = "Unauthorized user!" });
-            }
-            string jwtUsername = JwtUtils.ValidateJWT(jwt)?.Claims
-                                .Where(claim => claim.Type == ClaimTypes.Name)
-                                .FirstOrDefault().Value;
+            string jwtUsername = User.FindFirstValue(ClaimTypes.Name);
             if (jwtUsername != username)
             {
                 return BadRequest(new { Err = "You cannot update others' avatars!" });

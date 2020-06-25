@@ -90,6 +90,7 @@ namespace InstaminiWebService.Controllers
                                 .Include(p => p.Likes).ThenInclude(l => l.User).ThenInclude(u => u.AvatarPhoto)
                                 .Include(p => p.User).ThenInclude(u => u.AvatarPhoto)
                                 .Where(p => p.User.Username == username)
+                                .OrderByDescending(p => p.Created)
                                 .Select(p => (PostResponse)ResponseModelFactory.Create(p))
                                 .AsNoTracking()
                                 .ToListAsync();
