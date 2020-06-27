@@ -8,6 +8,7 @@ namespace InstaminiWebService.Utils
 {
     /// <summary>
     /// Handle image resize by providing the target width
+    /// Running on Linux requires installing libgdiplus
     /// </summary>
     public static class ImageUtils
     {
