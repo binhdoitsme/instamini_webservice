@@ -34,10 +34,10 @@ namespace InstaminiWebService
                         });
             services.AddCors(o => o.AddPolicy("CorsPolicy", builder =>
             {
-                builder.WithOrigins("http://localhost:3000")
+                // Allow Cross Origin Resource Sharing from anywhere 
+                builder.AllowAnyOrigin()
                        .AllowAnyMethod()
-                       .AllowAnyHeader()
-                       .AllowCredentials();
+                       .AllowAnyHeader();
             }));
             services.AddControllers();
             services.AddDbContext<InstaminiContext>(options => {
@@ -54,6 +54,9 @@ namespace InstaminiWebService
             {
                 app.UseDeveloperExceptionPage();
             }
+            using (var scope = app.ApplicationServices.CreateScope())
+			using (var context = scope.ServiceProvider.GetService<InstaminiContext>())
+			    context.Database.Migrate();
 
             app.UseStaticFiles(new StaticFileOptions()
             {
