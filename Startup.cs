@@ -56,9 +56,9 @@ namespace InstaminiWebService
             {
                 app.UseDeveloperExceptionPage();
             }
-            // using (var scope = app.ApplicationServices.CreateScope())
-			// using (var context = scope.ServiceProvider.GetService<InstaminiContext>())
-			//     context.Database.Migrate();
+            using (var scope = app.ApplicationServices.CreateScope())
+			using (var context = scope.ServiceProvider.GetService<InstaminiContext>())
+			    context.Database.Migrate();
 
             app.UseStaticFiles(new StaticFileOptions()
             {
