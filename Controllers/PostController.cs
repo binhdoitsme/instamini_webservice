@@ -1,5 +1,6 @@
 ﻿using InstaminiWebService.Database;
 using InstaminiWebService.Models;
+using InstaminiWebService.Repositories;
 using InstaminiWebService.ResponseModels;
 using InstaminiWebService.ResponseModels.Factory;
 using InstaminiWebService.Utils;
@@ -17,24 +18,20 @@ namespace InstaminiWebService.Controllers
     [ApiController]
     public class PostController : ControllerBase
     {
-        private readonly InstaminiContext DbContext;
+        private readonly PostRepository Repository;
         private readonly IResponseModelFactory ResponseModelFactory;
 
-        public PostController(InstaminiContext context, IResponseModelFactory responseModelFactory)
+        public PostController(IResponseModelFactory responseModelFactory,
+                                RepositoryFactory repositoryProvider)
         {
-            DbContext = context;
             ResponseModelFactory = responseModelFactory;
+            Repository = (PostRepository)repositoryProvider.GetRepository<Post>();
         }
 
         [HttpGet]
         public async Task<object> GetPostById([FromRoute] int id)
         {
-            var dbResult = await DbContext.Posts
-                        .Include(p => p.User).ThenInclude(u => u.AvatarPhoto)
-                        .Include(p => p.Likes).ThenInclude(l => l.User).ThenInclude(u => u.AvatarPhoto)
-                        .Include(p => p.Photos)
-                        .Include(p => p.Comments)
-                        .FirstOrDefaultAsync(p => p.Id == id);
+            var dbResult = await Repository.FindByIdAsync(id);
             if (dbResult is null)
             {
                 return NotFound();
@@ -53,34 +50,31 @@ namespace InstaminiWebService.Controllers
             // verify the current user
             int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
 
-            var current = await DbContext.Posts.Include(p => p.User).Where(p => p.Id == id).FirstOrDefaultAsync();
+            var current = await Repository.FindByIdAsync(id);
+            if (current is null)
+            {
+                return NotFound();
+            }
+
             if (userId != current?.UserId)
             {
                 return BadRequest(new { Err = "You do not have permission to change this post!" });
             }
 
             // perform update
-            var originalPost = await DbContext.Posts
-                                    .Include(p => p.User).ThenInclude(u => u.AvatarPhoto)
-                                    .Include(p => p.Likes).ThenInclude(l => l.User).ThenInclude(u => u.AvatarPhoto)
-                                    .Include(p => p.Photos)
-                                    .Include(p => p.Comments)
-                                    .SingleOrDefaultAsync(p => p.Id == id);
-            if (originalPost is null)
-            {
-                return NotFound();
-            }
-            DbContext.Entry(originalPost).CurrentValues.SetValues(new { toBeUpdated.Caption });
-            await DbContext.SaveChangesAsync();
+            var result = await Repository.UpdateAsync(current, new Post() {
+                Caption = toBeUpdated.Caption
+            });
 
-            return Ok(ResponseModelFactory.Create(originalPost));
+            return Ok(ResponseModelFactory.Create(result));
         }
 
-        [HttpDelete] [Authorize]
+        [HttpDelete]
+        [Authorize]
         public async Task<IActionResult> DeletePost([FromRoute] int id)
         {
             // get the post to be deleted
-            Post toBeDeleted = await DbContext.Posts.FindAsync(id);
+            Post toBeDeleted = await Repository.FindByIdAsync(id);
             if (toBeDeleted is null)
             {
                 return NotFound();
@@ -94,8 +88,7 @@ namespace InstaminiWebService.Controllers
             }
 
             // perform deletion
-            DbContext.Remove(toBeDeleted);
-            await DbContext.SaveChangesAsync();
+            await Repository.DeleteAsync(toBeDeleted);
 
             return Ok();
         }

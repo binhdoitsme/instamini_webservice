@@ -121,11 +121,13 @@ namespace InstaminiWebService.Repositories
             return retrievedUser;
         }
 
-        public override Task<bool> Exists(User user) {
+        public override Task<bool> Exists(User user)
+        {
             return UserDatabase.AnyAsync(u => u.Username == user.Username);
         }
 
-        public Task<User> FindByUsernameAsync(String username) {
+        public Task<User> FindByUsernameAsync(String username)
+        {
             return UserDatabase.Include(u => u.AvatarPhoto)
                             .Include(u => u.Posts).ThenInclude(p => p.Comments)
                             .Include(u => u.Posts).ThenInclude(p => p.Likes)
@@ -135,7 +137,8 @@ namespace InstaminiWebService.Repositories
                             .FirstOrDefaultAsync(u => u.Username == username);
         }
 
-        public async Task<IEnumerable<User>> FindByQueryAsync(String query) {
+        public async Task<IEnumerable<User>> FindByQueryAsync(String query)
+        {
             return await UserDatabase.Include(u => u.AvatarPhoto)
                                 .Include(u => u.Followers)
                                     .ThenInclude(f => f.Follower)
@@ -145,6 +148,17 @@ namespace InstaminiWebService.Repositories
                                         .ThenInclude(f => f.AvatarPhoto)
                                 .Where(u => u.Username.Contains(query))
                                 .ToListAsync();
+        }
+
+        public async Task<IEnumerable<string>> FindRelatedByUsernameAsync(string username)
+        {
+            return await UserDatabase.Include(u => u.Followings).ThenInclude(f => f.User)
+                                    .Where(u => u.Username == username)
+                                    .SelectMany(u => u.Followings)
+                                    .Where(f => f.IsActive.Value)
+                                    .Select(f => f.User.Username)
+                                    .AsNoTracking()
+                                    .ToListAsync();
         }
     }
 }

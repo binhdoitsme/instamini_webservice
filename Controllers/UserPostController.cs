@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using InstaminiWebService.Database;
 using InstaminiWebService.Models;
+using InstaminiWebService.Repositories;
 using InstaminiWebService.ResponseModels;
 using InstaminiWebService.ResponseModels.Factory;
 using InstaminiWebService.Utils;
@@ -21,16 +22,21 @@ namespace InstaminiWebService.Controllers
     public class UserPostController : ControllerBase
     {
         private readonly InstaminiContext DbContext;
+        private readonly PostRepository PostRepository;
+        private readonly UserRepository UserRepository;
         private readonly IResponseModelFactory ResponseModelFactory;
         private readonly string PhotoServingPath;
 
         public UserPostController(InstaminiContext dbContext,
                                     IResponseModelFactory responseModelFactory,
-                                    IConfiguration configuration)
+                                    IConfiguration configuration,
+                                    RepositoryFactory repositoryProvider)
         {
             DbContext = dbContext;
             ResponseModelFactory = responseModelFactory;
             PhotoServingPath = configuration.GetValue<string>("PhotoServingAbsolutePath");
+            PostRepository = (PostRepository)repositoryProvider.GetRepository<Post>();
+            UserRepository = (UserRepository)repositoryProvider.GetRepository<User>();
         }
 
         [HttpPost] [Authorize]
@@ -85,15 +91,8 @@ namespace InstaminiWebService.Controllers
         [HttpGet] [AllowAnonymous]
         public async Task<IEnumerable<PostResponse>> GetPostsByUser([FromRoute] string username)
         {
-            return await DbContext.Posts
-                                .Include(p => p.Photos)
-                                .Include(p => p.Likes).ThenInclude(l => l.User).ThenInclude(u => u.AvatarPhoto)
-                                .Include(p => p.User).ThenInclude(u => u.AvatarPhoto)
-                                .Where(p => p.User.Username == username)
-                                .OrderByDescending(p => p.Created)
-                                .Select(p => (PostResponse)ResponseModelFactory.Create(p))
-                                .AsNoTracking()
-                                .ToListAsync();
+            return (await PostRepository.FindByUserAsync(username))
+                        .Select(p => (PostResponse)ResponseModelFactory.Create(p));
         }
         
         [HttpGet("/users/{username}/feed")] [Authorize]
@@ -107,32 +106,10 @@ namespace InstaminiWebService.Controllers
             }
 
             // get related users
-            var relatedUsers = await DbContext.Users
-                                            .Include(u => u.Followings).ThenInclude(f => f.User)
-                                            .Where(u => u.Username == username)
-                                            .SelectMany(u => u.Followings)
-                                            .Where(f => f.IsActive.Value)
-                                            .Select(f => f.User.Username)
-                                            .AsNoTracking()
-                                            .ToListAsync();
+            var relatedUsers = await UserRepository.FindRelatedByUsernameAsync(username);
 
-            var result =  await DbContext.Posts
-                                .Include(p => p.Photos)
-                                .Include(p => p.Comments)
-                                    .ThenInclude(c => c.User)
-                                        .ThenInclude(u => u.AvatarPhoto)
-                                .Include(p => p.Likes)
-                                    .ThenInclude(l => l.User)
-                                        .ThenInclude(u => u.AvatarPhoto)
-                                .Include(p => p.User)
-                                    .ThenInclude(u => u.Followings)
-                                .Include(p => p.User)
-                                    .ThenInclude(u => u.AvatarPhoto)
-                                .Where(p => p.User.Username == username || relatedUsers.Contains(p.User.Username))
-                                .OrderByDescending(p => p.Created)
-                                .Select(p => (PostResponse)ResponseModelFactory.Create(p))
-                                .AsNoTracking()
-                                .ToListAsync();
+            var result = (await PostRepository.FindRelatedPostsAsync(username, relatedUsers))
+                            .Select(p => (PostResponse)ResponseModelFactory.Create(p));
             return Ok(result);
         }
     }
