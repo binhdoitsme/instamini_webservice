@@ -1,5 +1,6 @@
 ﻿using InstaminiWebService.Database;
 using InstaminiWebService.Models;
+using InstaminiWebService.Repositories;
 using InstaminiWebService.ResponseModels;
 using InstaminiWebService.ResponseModels.Factory;
 using InstaminiWebService.Utils;
@@ -19,24 +20,18 @@ namespace InstaminiWebService.Controllers
     [ApiController]
     public class UserController : ControllerBase
     {
-        private readonly DbSet<User> UserContext;
-        private readonly InstaminiContext DbContext;
+        private readonly UserRepository Repository;
         private readonly IResponseModelFactory ResponseModelFactory;
         private readonly ILogger Logger;
-        private readonly IConfiguration Configuration;
-        private readonly string DefaultAvatarPath;
 
         public UserController(InstaminiContext context, 
                               IResponseModelFactory responseModelFactory,
                               ILogger<UserController> logger,
-                              IConfiguration configuration)
+                              RepositoryFactory repositoryProvider)
         {
-            DbContext = context;
-            UserContext = context.Users;
+            Repository = (UserRepository)repositoryProvider.GetRepository<User>();
             ResponseModelFactory = responseModelFactory;
             Logger = logger;
-            Configuration = configuration;
-            DefaultAvatarPath = Configuration.GetValue<string>("DefaultAvatar");
         }
 
         [HttpGet]
@@ -51,24 +46,13 @@ namespace InstaminiWebService.Controllers
 
             if (query != null)
             {
-                var result = await DbContext.Users.Include(u => u.AvatarPhoto)
-                                    .Include(u => u.Followers)
-                                        .ThenInclude(f => f.Follower)
-                                            .ThenInclude(f => f.AvatarPhoto)
-                                    .Include(u => u.Followings)
-                                        .ThenInclude(f => f.User)
-                                            .ThenInclude(f => f.AvatarPhoto)
-                                    .Where(u => u.Username.Contains(query))
-                                    .Select(u => (UserResponse)ResponseModelFactory.Create(u))
-                                    .ToListAsync();
+                var result = (await Repository.FindByQueryAsync(query))
+                                        .Select(u => (UserResponse)ResponseModelFactory.Create(u));
                 return Ok(result);
             }
             else
             {
-                var result = await UserContext.Include(u => u.AvatarPhoto)
-                                        .Include(u => u.Followers)
-                                        .Where(u => u.Id == id)
-                                        .FirstOrDefaultAsync();
+                var result = await Repository.FindByIdAsync(id.Value);
                 if (result is null)
                 {
                     return NotFound();
@@ -82,38 +66,14 @@ namespace InstaminiWebService.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> CreateUser([FromBody] User user)
         {
-            bool hasDuplicate = UserContext.Any(u => u.Username == user.Username);
+            bool hasDuplicate = await Repository.Exists(user);
             if (hasDuplicate)
             {
                 return BadRequest(new { Err =  "Username is duplicated!" });
             }
 
-            string originalPass = user.Password;
-            string salt = PasswordUtils.GenerateSalt();
-            string hashedPass = PasswordUtils.HashPasswordWithSalt(originalPass, salt);
-            var now = DateTimeOffset.UtcNow;
-
-            user.Username = user.Username.Trim();
-            user.DisplayName = user.DisplayName.Trim();
-            user.Password = hashedPass;
-            user.Salt = salt;
-            user.Created = now;
-            user.LastUpdate = now;
-
-            await UserContext.AddAsync(user);
-            await DbContext.SaveChangesAsync();
-
-            // create new avatar record
-            var photo = new AvatarPhoto
-            {
-                UserId = user.Id,
-                FileName = DefaultAvatarPath
-            };
-            DbContext.AvatarPhotos.Add(photo);
-            await DbContext.SaveChangesAsync();
-
-            // format output
-            user.AvatarPhoto = photo;
+            var result = await Repository.InsertAsync(user);
+            
             return Created(Url.Action("GetUserByUsername", new { username = user.Username }), ResponseModelFactory.Create(user));
         }
 
@@ -121,13 +81,7 @@ namespace InstaminiWebService.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> GetUserByUsername([FromRoute] string username)
         {
-            var retrievedUser = await UserContext.Include(u => u.AvatarPhoto)
-                                        .Include(u => u.Posts).ThenInclude(p => p.Comments)
-                                        .Include(u => u.Posts).ThenInclude(p => p.Likes)
-                                        .Include(u => u.Posts).ThenInclude(p => p.Photos)
-                                        .Include(u => u.Followers).ThenInclude(u => u.Follower).ThenInclude(f => f.AvatarPhoto)
-                                        .Include(u => u.Followings).ThenInclude(u => u.User).ThenInclude(f => f.AvatarPhoto)
-                                        .Where(u => u.Username == username).FirstOrDefaultAsync();
+            var retrievedUser = await Repository.FindByUsernameAsync(username);
             if (retrievedUser is null)
             {
                 return NotFound();
@@ -142,9 +96,7 @@ namespace InstaminiWebService.Controllers
         public async Task<IActionResult> UpdateUser([FromBody] User user, 
                                                     [FromRoute] string username)
         {
-            var retrievedUser = await DbContext.Users
-                                    .Include(u => u.AvatarPhoto)
-                                    .FirstOrDefaultAsync(u => u.Username == username);
+            var retrievedUser = await Repository.FindByUsernameAsync(username);
             if (retrievedUser is null)
             {
                 return NotFound();
@@ -164,52 +116,15 @@ namespace InstaminiWebService.Controllers
             // check username
             if (!string.IsNullOrEmpty(user.Username)
                 && user.Username != username
-                && DbContext.Users.Any(u => u.Username == user.Username))
+                && await Repository.Exists(user))
             {
                 return BadRequest(new { Err = "Username is duplicated!" });
             }
 
             // Perform password update right here
             // ----------------------------------
-
-            if (!string.IsNullOrEmpty(user.Password))
-            {
-                string salt = PasswordUtils.GenerateSalt();
-                string hashedPassword = PasswordUtils.HashPasswordWithSalt(user.Password, salt);
-                user.Salt = salt;
-                user.Password = hashedPassword;
-            } else
-            {
-                user.Password = retrievedUser.Password;
-                user.Salt = retrievedUser.Salt;
-            }
-
-            if (user.Created == DateTimeOffset.MinValue)
-            {
-                user.Created = retrievedUser.Created;
-            }
-
-            if (string.IsNullOrEmpty(user.Username))
-            {
-                user.Username = retrievedUser.Username;
-            }
-            if (string.IsNullOrEmpty(user.DisplayName))
-            {
-                user.DisplayName = retrievedUser.DisplayName;
-            }
-
-            var now = DateTime.UtcNow;
-            user.LastUpdate = now;
-
-            // After password update
-            DbContext.Entry(retrievedUser).CurrentValues.SetValues(new
-            {
-                user.Username,
-                user.Password,
-                user.DisplayName,
-                user.Salt
-            });
-            await DbContext.SaveChangesAsync();
+            var result = await Repository.UpdateAsync(retrievedUser, user);
+            
             return Ok(ResponseModelFactory.Create(retrievedUser));
         }
 
@@ -226,14 +141,14 @@ namespace InstaminiWebService.Controllers
                 return BadRequest(new { Err =  "You cannot delete others' accounts!" });
             }
             // ---------------------------------------------
-            var retrievedUser = await UserContext.FirstOrDefaultAsync(u => u.Username == username);
-            if (retrievedUser == null)
+            var retrievedUser = await Repository.FindByUsernameAsync(username);
+            if (retrievedUser is null)
             {
                 return NotFound();
             }
 
-            UserContext.Remove(retrievedUser);
-            await DbContext.SaveChangesAsync();
+            await Repository.DeleteAsync(retrievedUser);
+
             // remove token in response
             Response.Cookies.Delete("Token");
             return Ok();

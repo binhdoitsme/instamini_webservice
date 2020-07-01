@@ -1,4 +1,5 @@
 using InstaminiWebService.Database;
+using InstaminiWebService.Repositories;
 using InstaminiWebService.ResponseModels.Factory;
 using InstaminiWebService.Utils;
 using Microsoft.AspNetCore.Builder;
@@ -44,7 +45,8 @@ namespace InstaminiWebService
                             options.UseMySQL(Configuration.GetConnectionString("Instamini"));
                             options.UseLoggerFactory(LoggerFactory.Create(builder => builder.AddConsole()));
                         })
-                    .AddSingleton<IResponseModelFactory>(new ResponseModelFactory());
+                    .AddSingleton<IResponseModelFactory>(new ResponseModelFactory())
+                    .AddScoped<RepositoryFactory>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -54,9 +56,9 @@ namespace InstaminiWebService
             {
                 app.UseDeveloperExceptionPage();
             }
-            using (var scope = app.ApplicationServices.CreateScope())
-			using (var context = scope.ServiceProvider.GetService<InstaminiContext>())
-			    context.Database.Migrate();
+            // using (var scope = app.ApplicationServices.CreateScope())
+			// using (var context = scope.ServiceProvider.GetService<InstaminiContext>())
+			//     context.Database.Migrate();
 
             app.UseStaticFiles(new StaticFileOptions()
             {
