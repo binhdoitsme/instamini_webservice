@@ -1,5 +1,6 @@
 using InstaminiWebService.Database;
 using InstaminiWebService.Models;
+using InstaminiWebService.Repositories;
 using InstaminiWebService.ResponseModels;
 using InstaminiWebService.ResponseModels.Factory;
 using InstaminiWebService.Utils;
@@ -17,21 +18,19 @@ namespace InstaminiWebService.Controllers
     [ApiController]
     public class CommentController : ControllerBase
     {
-        private readonly InstaminiContext DbContext;
+        private readonly CommentRepository Repository;
         private readonly IResponseModelFactory ResponseModelFactory;
 
-        public CommentController(InstaminiContext context, IResponseModelFactory responseModelFactory)
+        public CommentController(IResponseModelFactory responseModelFactory, RepositoryFactory repositoryProvider)
         {
-            DbContext = context;
             ResponseModelFactory = responseModelFactory;
+            Repository = (CommentRepository)repositoryProvider.GetRepository<Comment>();
         }
 
         [HttpGet]
         public async Task<IActionResult> GetCommentById([FromRoute] int id)
         {
-            var result = await DbContext.Comments
-                                .Include(c => c.User).ThenInclude(u => u.AvatarPhoto)
-                                .Where(c => c.Id == id).FirstOrDefaultAsync();
+            var result = await Repository.FindByIdAsync(id);
             if (result is null)
             {
                 return NotFound();
@@ -49,31 +48,28 @@ namespace InstaminiWebService.Controllers
 
             // verify the current user
             int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-            var current = await DbContext.Comments.Include(p => p.User).Where(p => p.Id == id).FirstOrDefaultAsync();
+            var current = await Repository.FindByIdAsync(id);
             if (userId != current?.UserId)
             {
                 return BadRequest(new { Err = "You do not have permission to change this comment!" });
             }
 
             // perform update
-            var originalPost = await DbContext.Comments
-                                        .Include(c => c.User).ThenInclude(u => u.AvatarPhoto)
-                                        .SingleOrDefaultAsync(c => c.Id == id);
-            if (originalPost is null)
+            if (current is null)
             {
                 return NotFound();
             }
-            DbContext.Entry(originalPost).CurrentValues.SetValues(new { toBeUpdated.Content });
-            await DbContext.SaveChangesAsync();
+            
+            var result = await Repository.UpdateAsync(current, toBeUpdated);
 
-            return Ok(ResponseModelFactory.Create(originalPost));
+            return Ok(ResponseModelFactory.Create(result));
         }
 
         [HttpDelete] [Authorize]
         public async Task<IActionResult> RemoveCommentById([FromRoute] int id)
         {
             // get the comment to be deleted
-            Comment toBeDeleted = await DbContext.Comments.Where(c => c.Id == id).FirstOrDefaultAsync();
+            Comment toBeDeleted = await Repository.FindByIdAsync(id);
             if (toBeDeleted is null)
             {
                 return NotFound();
@@ -87,8 +83,7 @@ namespace InstaminiWebService.Controllers
             }
 
             // perform deletion
-            DbContext.Remove(toBeDeleted);
-            await DbContext.SaveChangesAsync();
+            await Repository.DeleteAsync(toBeDeleted);
 
             return Ok();
         }

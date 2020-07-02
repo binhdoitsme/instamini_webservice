@@ -64,6 +64,7 @@ namespace InstaminiWebService.Repositories
             return await PostDatabase.Include(p => p.Photos)
                         .Include(p => p.Likes).ThenInclude(l => l.User).ThenInclude(u => u.AvatarPhoto)
                         .Include(p => p.User).ThenInclude(u => u.AvatarPhoto)
+                        .Include(p => p.Comments).ThenInclude(c => c.User).ThenInclude(u => u.AvatarPhoto)
                         .Where(p => p.User.Username == username)
                         .OrderByDescending(p => p.Created)
                         .AsNoTracking()

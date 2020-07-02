@@ -11,7 +11,8 @@ namespace InstaminiWebService.Repositories
         private static readonly IDictionary<Type, Type> REPOSITORY_TYPES = new Dictionary<Type, Type>()
         {
             { typeof(User), typeof(UserRepository) },
-            { typeof(Post), typeof(PostRepository) }
+            { typeof(Post), typeof(PostRepository) },
+            { typeof(Comment), typeof(CommentRepository) }
         };
 
         private readonly InstaminiContext DbContext;
