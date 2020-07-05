@@ -13,6 +13,7 @@ namespace InstaminiWebService.Utils
     public static class ImageUtils
     {
         private const int DEFAULT_WIDTH = 2560;
+        private const int MAX_DPI = 120;
 
         public static Bitmap ResizeImage(Image image, int desiredWidth = DEFAULT_WIDTH)
         {
@@ -23,7 +24,7 @@ namespace InstaminiWebService.Utils
             var destRect = new Rectangle(0, 0, desiredWidth, desiredHeight);
             var destImage = new Bitmap(desiredWidth, desiredHeight);
 
-            destImage.SetResolution(image.HorizontalResolution, image.VerticalResolution);
+            destImage.SetResolution(MAX_DPI, MAX_DPI);
 
             using (var graphics = Graphics.FromImage(destImage))
             {
